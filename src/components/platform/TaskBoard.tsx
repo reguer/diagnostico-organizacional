@@ -29,6 +29,49 @@ const typeColor: Record<TipoTarea, string> = {
   crecimiento: 'border-indigo-200 bg-indigo-50 text-indigo-700',
 };
 
+function mdCell(value: unknown) {
+  return String(value ?? '').replace(/\|/g, '/').replace(/\n/g, ' ').trim();
+}
+
+function downloadNotionStories(tasks: PlanTask[]) {
+  const lines = [
+    '# Epics and Stories - Diagnostico Organizacional',
+    '',
+    '| Epic | Story | Tarea | Area | Tipo | Fase | Fecha | Duracion | Paralelo | Estado |',
+    '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+    ...tasks.map((task) => {
+      const runtime = getTaskRuntime(task.id);
+      return [
+        task.epic ?? task.areaNombre,
+        task.story ?? task.titulo,
+        task.titulo,
+        task.areaNombre,
+        task.tipo,
+        task.fase ?? 'implementacion',
+        getTaskDisplayDate(task),
+        task.duracion,
+        task.paralelo ? 'Si' : 'No',
+        runtime.estado,
+      ].map(mdCell).join(' | ');
+    }).map((row) => `| ${row} |`),
+    '',
+    '## Notas de ejecucion',
+    '',
+    '- Las tareas con `Paralelo = Si` pueden avanzar al mismo tiempo que tareas de otras areas.',
+    '- Las tareas recurrentes semanales aparecen como tarjetas separadas para dar seguimiento real, no como una sola actividad.',
+    '- Las fechas son una propuesta inicial; se pueden mover en el tablero o calendario sin perder respuestas.',
+  ];
+  const blob = new Blob([lines.join('\n')], { type: 'text/markdown;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'notion-ready-epics-stories.md';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 export function TaskBoard({ tasks, onChanged }: TaskBoardProps) {
   const [areaFilter, setAreaFilter] = useState('todas');
   const [typeFilter, setTypeFilter] = useState('todos');
@@ -60,6 +103,13 @@ export function TaskBoard({ tasks, onChanged }: TaskBoardProps) {
           <option value="optimizacion">Optimizacion</option>
           <option value="crecimiento">Crecimiento</option>
         </select>
+        <button
+          type="button"
+          onClick={() => downloadNotionStories(filtered)}
+          className="rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-100"
+        >
+          Descargar Notion-ready epics/stories
+        </button>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
@@ -89,12 +139,19 @@ export function TaskBoard({ tasks, onChanged }: TaskBoardProps) {
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div>
+                          {task.epic && <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-indigo-500">{task.epic}</p>}
                           <p className={`text-sm font-bold ${runtime.estado === 'completada' ? 'text-slate-400 line-through' : 'text-slate-800'}`}>{task.titulo}</p>
                           <p className="mt-1 text-xs text-slate-500">{task.areaNombre}</p>
                         </div>
                         <span className={`rounded-full border px-2 py-1 text-[11px] font-bold ${typeColor[task.tipo]}`}>{task.tipo}</span>
                       </div>
                       <p className="mt-2 text-xs leading-relaxed text-slate-500">{task.detalle}</p>
+                      {task.story && <p className="mt-2 rounded-lg bg-slate-50 px-2 py-1 text-xs text-slate-500">{task.story}</p>}
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {task.fase && <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-500">Fase: {task.fase}</span>}
+                        {task.paralelo && <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">Puede ir en paralelo</span>}
+                        {task.recurrencia && <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700">Recurrente: {task.recurrencia}</span>}
+                      </div>
                       {runtime.nota && <p className="mt-2 truncate rounded-lg bg-slate-50 px-2 py-1 text-xs text-slate-500">{runtime.nota}</p>}
                       <div className="mt-3 flex items-center gap-2">
                         <input

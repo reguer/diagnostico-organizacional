@@ -563,6 +563,69 @@ const SEMANA_OBJETIVOS_FALLBACK = [
 ];
 
 export function generarPlanSemanal(resultado: ResultadosDiagnostico): PlanSemanal[] {
+  if (resultado.planAccion.some((accion) => accion.preguntaId)) {
+    const areaCounts: Record<string, number> = {};
+    const tareas = resultado.planAccion.flatMap((accion, idx) => {
+      const areaIndex = areaCounts[accion.areaId] ?? 0;
+      areaCounts[accion.areaId] = areaIndex + 1;
+      const baseTask: TareaSemanal = {
+        id: `${accion.areaId}-${accion.preguntaId ?? idx}`,
+        dia: DIAS[(areaIndex + Math.max(0, Object.keys(areaCounts).indexOf(accion.areaId))) % DIAS.length],
+        hora: accion.recurrencia === 'semanal' ? '08:30' : '09:00',
+        titulo: accion.accion,
+        detalle: `${accion.detalle}${accion.paralelo ? ' Puede trabajarse en paralelo con otras areas.' : ''}`,
+        tipo: accion.tipo === 'crecimiento' ? 'automatizacion' : accion.tipo,
+        areaId: accion.areaId,
+        areaNombre: accion.areaNombre,
+        areaIcono: accion.icono,
+        duracion: accion.plazo,
+        herramienta: accion.subarea ? `Subarea: ${accion.subarea}` : undefined,
+        automatizacion: accion.recurrencia ? `Rutina ${accion.recurrencia}` : undefined,
+        kpiMejora: accion.respuestaObjetivo,
+        kriMitiga: accion.respuestaActual,
+      };
+
+      if (accion.recurrencia !== 'semanal') return [baseTask];
+      return [
+        {
+          ...baseTask,
+          id: `${baseTask.id}-prep`,
+          titulo: `Preparar formato recurrente: ${accion.accion}`,
+          detalle: `${accion.detalle} Entregable unico: agenda, responsable, evidencia esperada y minuta base.`,
+          duracion: '1-2 horas una sola vez',
+        },
+        ...Array.from({ length: 12 }, (_, occurrenceIdx) => ({
+          ...baseTask,
+          id: `${baseTask.id}-semana-${occurrenceIdx + 1}`,
+          titulo: `${accion.accion} · semana ${occurrenceIdx + 1}`,
+          detalle: `Ejecucion recurrente semanal con agenda y evidencia. ${accion.detalle}`,
+          duracion: '20-45 minutos',
+        })),
+      ];
+    });
+
+    const TASKS_PER_WEEK = 8;
+    const semanas: PlanSemanal[] = [];
+    const totalWeeks = Math.max(1, Math.ceil(tareas.length / TASKS_PER_WEEK));
+
+    for (let semanaNum = 1; semanaNum <= totalWeeks; semanaNum++) {
+      const chunk = tareas.slice((semanaNum - 1) * TASKS_PER_WEEK, semanaNum * TASKS_PER_WEEK);
+      const areasSemana = Array.from(new Set(chunk.map((tarea) => tarea.areaNombre)));
+      semanas.push({
+        semanaNum,
+        semana: `Semana ${semanaNum}`,
+        subtitulo: semanaNum === 1 ? 'Preparacion y brechas criticas' : 'Ejecucion, recurrencias y evaluacion',
+        plazo: `Semana ${semanaNum}`,
+        objetivo: `Atender ${chunk.length} brechas del diagnostico${areasSemana.length ? ` en ${areasSemana.join(', ')}` : ''}.`,
+        tareas: chunk.map((tarea, i) => ({ ...tarea, dia: DIAS[i % DIAS.length] })),
+        focusArea: areasSemana.slice(0, 2).join(' + ') || 'Plan de accion',
+        metasSemana: chunk.slice(0, 5).map((tarea) => tarea.titulo),
+      });
+    }
+
+    return semanas;
+  }
+
   const { scoresPorArea } = resultado;
   const areasOrdenadas = Object.entries(scoresPorArea).sort(([, a], [, b]) => a - b);
 

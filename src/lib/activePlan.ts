@@ -1,7 +1,8 @@
 import { AREAS } from '../data/diagnostico';
 import type { AccionItem } from './calculator';
+import { calcularResultados } from './calculator';
+import { filtrarPreguntas } from './filterQuestions';
 import {
-  buildTaskId,
   getEstadoTarea,
   readJson,
   updateEstadoTarea,
@@ -22,6 +23,12 @@ export interface PlanTask {
   duracion: string;
   fechaAsignada: string;
   origen: 'diagnostico' | 'personalizada';
+  epic?: string;
+  story?: string;
+  preguntaId?: string;
+  fase?: 'preparacion' | 'implementacion' | 'evaluacion';
+  paralelo?: boolean;
+  recurrencia?: 'semanal' | 'mensual';
 }
 
 export interface CustomTaskInput {
@@ -51,25 +58,89 @@ function inferTipo(score: number): TipoTarea {
   return 'crecimiento';
 }
 
-function generatedTask(diagnostico: DiagnosticoGuardado, accion: AccionItem, idx: number): PlanTask {
-  const estado = getEstadoTarea(buildTaskId(diagnostico.id, accion.areaId));
+function actionTaskId(diagnosticoId: string, accion: AccionItem, suffix: string | number) {
+  return `${diagnosticoId}:accion:${accion.areaId}:${accion.preguntaId ?? 'area'}:${suffix}`;
+}
+
+function generatedTask(
+  diagnostico: DiagnosticoGuardado,
+  accion: AccionItem,
+  idx: number,
+  areaIndex: number,
+  suffix: string | number = idx,
+  titulo = accion.accion,
+  detalle = accion.detalle,
+): PlanTask {
+  const taskId = actionTaskId(diagnostico.id, accion, suffix);
+  const estado = getEstadoTarea(taskId);
   const fechaBase = new Date(diagnostico.fecha);
+  const week = Math.floor(areaIndex / 2);
+  const areaOffset = ['finanzas', 'operaciones', 'personas', 'mercadeo', 'estrategia'].indexOf(accion.areaId);
+  const dayOffset = week * 7 + (areaOffset >= 0 ? areaOffset : idx % 5);
 
   return {
-    id: buildTaskId(diagnostico.id, accion.areaId),
-    titulo: accion.accion,
-    detalle: accion.detalle,
+    id: taskId,
+    titulo,
+    detalle,
     areaId: accion.areaId,
     areaNombre: accion.areaNombre,
     tipo: inferTipo(diagnostico.resultado.scoresPorArea[accion.areaId] ?? 0),
     duracion: accion.plazo,
-    fechaAsignada: estado.fechaAsignada ?? toIsoDate(addDays(fechaBase, idx)),
+    fechaAsignada: estado.fechaAsignada ?? toIsoDate(addDays(fechaBase, dayOffset)),
     origen: 'diagnostico',
+    epic: `${accion.icono} ${accion.areaNombre} · ${accion.subarea ?? 'Mejora operativa'}`,
+    story: accion.preguntaId
+      ? `Como dueño quiero cerrar la brecha de "${accion.preguntaId}" para avanzar de "${accion.respuestaActual ?? 'estado actual'}" a "${accion.respuestaObjetivo ?? 'estado objetivo'}".`
+      : accion.accion,
+    preguntaId: accion.preguntaId,
+    fase: accion.fase,
+    paralelo: accion.paralelo,
+    recurrencia: accion.recurrencia,
   };
 }
 
 export function getGeneratedTasks(diagnostico: DiagnosticoGuardado) {
-  return diagnostico.resultado.planAccion.map((accion, idx) => generatedTask(diagnostico, accion, idx));
+  const areasActivas = filtrarPreguntas(AREAS, diagnostico.config);
+  const resultadoActualizado = calcularResultados(diagnostico.respuestas, areasActivas);
+  const diagnosticoActualizado = { ...diagnostico, resultado: resultadoActualizado };
+  const areaCounts: Record<string, number> = {};
+
+  return resultadoActualizado.planAccion.flatMap((accion, idx) => {
+    const areaIndex = areaCounts[accion.areaId] ?? 0;
+    areaCounts[accion.areaId] = areaIndex + 1;
+
+    const base = generatedTask(diagnosticoActualizado, accion, idx, areaIndex);
+    if (accion.recurrencia !== 'semanal') return [base];
+
+    const prep = generatedTask(
+      diagnosticoActualizado,
+      accion,
+      idx,
+      areaIndex,
+      'prep',
+      `Preparar formato recurrente: ${accion.accion}`,
+      `${accion.detalle} Entregable: agenda, responsable, evidencia esperada y minuta base para que la rutina no dependa de improvisacion.`,
+    );
+
+    const fechaBase = new Date(prep.fechaAsignada);
+    const ocurrencias = Array.from({ length: 12 }, (_, occurrenceIdx) => {
+      const occurrenceDate = addDays(fechaBase, 7 * (occurrenceIdx + 1));
+      const taskId = actionTaskId(diagnostico.id, accion, `semana-${occurrenceIdx + 1}`);
+      const estado = getEstadoTarea(taskId);
+      return {
+        ...base,
+        id: taskId,
+        titulo: `${accion.accion} · semana ${occurrenceIdx + 1}`,
+        detalle: `Ejecucion recurrente semanal. Revisa acuerdos anteriores, bloqueos, responsables y evidencia de avance. Base: ${accion.detalle}`,
+        duracion: '20-45 minutos',
+        fechaAsignada: estado.fechaAsignada ?? toIsoDate(occurrenceDate),
+        fase: 'implementacion' as const,
+        recurrencia: 'semanal' as const,
+      };
+    });
+
+    return [prep, ...ocurrencias];
+  });
 }
 
 export function getCustomTasks() {

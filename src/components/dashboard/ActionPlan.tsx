@@ -11,18 +11,18 @@ const TIPO_CONFIG = {
 };
 
 export function ActionPlan({ acciones }: ActionPlanProps) {
-  // Show top 3 by priority (remediacion first, then optimizacion, then crecimiento)
   const prioridadOrden = { remediacion: 0, optimizacion: 1, crecimiento: 2 };
   const accionesOrdenadas = [...acciones]
-    .sort((a, b) => prioridadOrden[a.tipo] - prioridadOrden[b.tipo])
-    .slice(0, 5);
+    .sort((a, b) => prioridadOrden[a.tipo] - prioridadOrden[b.tipo] || a.prioridad - b.prioridad);
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
       <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-1">
         Plan de Acción
       </h3>
-      <p className="text-xs text-slate-400 mb-4">Pasos concretos ordenados por impacto y urgencia</p>
+      <p className="text-xs text-slate-400 mb-4">
+        {accionesOrdenadas.length} acciones detectadas desde tus respuestas, ordenadas por impacto y urgencia
+      </p>
 
       <div className="space-y-4">
         {accionesOrdenadas.map((accion, idx) => {
@@ -58,8 +58,14 @@ export function ActionPlan({ acciones }: ActionPlanProps) {
 
                 <p className="font-bold text-slate-800 text-sm mb-1.5">{accion.accion}</p>
                 <p className="text-xs text-slate-500 leading-relaxed mb-2">{accion.detalle}</p>
+                {(accion.respuestaActual || accion.respuestaObjetivo) && (
+                  <div className="mb-2 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
+                    {accion.respuestaActual && <p><strong>Actual:</strong> {accion.respuestaActual}</p>}
+                    {accion.respuestaObjetivo && <p><strong>Objetivo:</strong> {accion.respuestaObjetivo}</p>}
+                  </div>
+                )}
 
-                <div className="flex items-center gap-1.5">
+                <div className="flex flex-wrap items-center gap-1.5">
                   <span className="text-xs">⏰</span>
                   <span
                     className="text-xs font-semibold px-2 py-0.5 rounded-full"
@@ -67,6 +73,16 @@ export function ActionPlan({ acciones }: ActionPlanProps) {
                   >
                     {accion.plazo}
                   </span>
+                  {accion.paralelo && (
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">
+                      Puede ir en paralelo
+                    </span>
+                  )}
+                  {accion.recurrencia && (
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">
+                      Recurrente {accion.recurrencia}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>

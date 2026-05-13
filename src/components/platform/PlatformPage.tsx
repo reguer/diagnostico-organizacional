@@ -1,7 +1,18 @@
 import { useReducer, useState } from 'react';
 import { getActiveTasks } from '../../lib/activePlan';
-import { getHistorialDiagnosticos } from '../../lib/storage';
-import { ensureSuggestedGoals, getMetas } from '../../lib/metricas';
+import { getHistorialDiagnosticos, saveDiagnostico } from '../../lib/storage';
+import { ensureSuggestedGoalsFromActions, getMetas } from '../../lib/metricas';
+import { calcularResultados } from '../../lib/calculator';
+import { filtrarPreguntas } from '../../lib/filterQuestions';
+import { AREAS } from '../../data/diagnostico';
+import { generarPlanSemanal } from '../../lib/weeklyPlan';
+import { generarKpiKri } from '../../lib/kpiKri';
+import { HealthScore } from '../dashboard/HealthScore';
+import { AreaRadarChart } from '../dashboard/AreaRadarChart';
+import { ImpactSection } from '../dashboard/ImpactSection';
+import { ActionPlan } from '../dashboard/ActionPlan';
+import { WeeklyPlan } from '../dashboard/WeeklyPlan';
+import { KpiKriSection } from '../dashboard/KpiKriSection';
 import { AddTaskModal } from './AddTaskModal';
 import { AuthPanel } from './AuthPanel';
 import { CalendarView } from './CalendarView';
@@ -12,13 +23,15 @@ import { ReportsPanel } from './ReportsPanel';
 import { TaskBoard } from './TaskBoard';
 import { TeamPanel } from './TeamPanel';
 
-type PlatformTab = 'tareas' | 'metas' | 'kpis' | 'finanzas' | 'calendario' | 'equipo' | 'reportes';
+type PlatformTab = 'diagnostico' | 'plan' | 'tareas' | 'metas' | 'kpis' | 'finanzas' | 'calendario' | 'equipo' | 'reportes';
 
 interface PlatformPageProps {
   onGoDiagnostic: () => void;
 }
 
 const tabs: Array<{ id: PlatformTab; label: string }> = [
+  { id: 'diagnostico', label: 'Diagnostico' },
+  { id: 'plan', label: 'Plan semanal' },
   { id: 'tareas', label: 'Tareas' },
   { id: 'metas', label: 'Metas' },
   { id: 'kpis', label: 'KPIs' },
@@ -29,18 +42,32 @@ const tabs: Array<{ id: PlatformTab; label: string }> = [
 ];
 
 export function PlatformPage({ onGoDiagnostic }: PlatformPageProps) {
-  const [tab, setTab] = useState<PlatformTab>('tareas');
+  const [tab, setTab] = useState<PlatformTab>('diagnostico');
   const [, refresh] = useReducer((value: number) => value + 1, 0);
   const [modalOpen, setModalOpen] = useState(false);
   const [now] = useState(() => Date.now());
-  const diagnostico = getHistorialDiagnosticos()[0];
+  const diagnosticoGuardado = getHistorialDiagnosticos()[0];
+  const diagnostico = diagnosticoGuardado
+    ? {
+        ...diagnosticoGuardado,
+        resultado: calcularResultados(
+          diagnosticoGuardado.respuestas,
+          filtrarPreguntas(AREAS, diagnosticoGuardado.config),
+        ),
+      }
+    : undefined;
 
   if (diagnostico) {
-    ensureSuggestedGoals(diagnostico.resultado.planAccion.map((accion) => accion.areaId));
+    if (diagnosticoGuardado && diagnosticoGuardado.resultado.planAccion.length !== diagnostico.resultado.planAccion.length) {
+      saveDiagnostico(diagnostico);
+    }
+    ensureSuggestedGoalsFromActions(diagnostico.resultado.planAccion);
   }
 
   const tasks = diagnostico ? getActiveTasks(diagnostico) : [];
   const metas = getMetas();
+  const planSemanal = diagnostico ? generarPlanSemanal(diagnostico.resultado) : [];
+  const kpiKri = diagnostico ? generarKpiKri(diagnostico.resultado.scoresPorArea) : [];
 
   const completed = tasks.filter((task) => {
     const raw = window.localStorage.getItem(`diag:tareas:${task.id}`);
@@ -110,9 +137,27 @@ export function PlatformPage({ onGoDiagnostic }: PlatformPageProps) {
               ))}
             </nav>
 
+            {tab === 'diagnostico' && (
+              <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
+                <div className="space-y-4">
+                  <HealthScore resultado={diagnostico.resultado} />
+                  <AreaRadarChart scoresPorArea={diagnostico.resultado.scoresPorArea} />
+                </div>
+                <div className="space-y-4">
+                  <ImpactSection impactos={diagnostico.resultado.impactosReales} />
+                  <ActionPlan acciones={diagnostico.resultado.planAccion} />
+                </div>
+              </div>
+            )}
+            {tab === 'plan' && <WeeklyPlan plan={planSemanal} />}
             {tab === 'tareas' && <TaskBoard tasks={tasks} onChanged={refresh} />}
             {tab === 'metas' && <GoalsPanel metas={metas} onChanged={refresh} />}
-            {tab === 'kpis' && <KpiTracker onChanged={refresh} />}
+            {tab === 'kpis' && (
+              <div className="space-y-4">
+                <KpiKriSection areas={kpiKri} />
+                <KpiTracker onChanged={refresh} />
+              </div>
+            )}
             {tab === 'finanzas' && <FinanzasBasicas onChanged={refresh} />}
             {tab === 'calendario' && <CalendarView tasks={tasks} metas={metas} onChanged={refresh} />}
             {tab === 'equipo' && <TeamPanel tasks={tasks} onChanged={refresh} />}

@@ -28,6 +28,13 @@ export interface AccionItem {
   detalle: string;
   plazo: string;
   tipo: TipoAccion;
+  preguntaId?: string;
+  subarea?: string;
+  respuestaActual?: string;
+  respuestaObjetivo?: string;
+  fase?: 'preparacion' | 'implementacion' | 'evaluacion';
+  paralelo?: boolean;
+  recurrencia?: 'semanal' | 'mensual';
 }
 
 export interface ResultadosDiagnostico {
@@ -188,6 +195,77 @@ function getTipoAccion(score: number): TipoAccion {
   return 'crecimiento';
 }
 
+function getTipoAccionPorRespuesta(valor: number): TipoAccion {
+  if (valor <= 2) return 'remediacion';
+  if (valor === 3) return 'optimizacion';
+  return 'crecimiento';
+}
+
+function getFasePorRespuesta(valor: number): AccionItem['fase'] {
+  if (valor <= 1) return 'preparacion';
+  if (valor === 2) return 'implementacion';
+  return 'evaluacion';
+}
+
+function getPlazoPorPregunta(pregunta: Area['preguntas'][number], valor: number) {
+  const texto = `${pregunta.texto} ${pregunta.descripcion ?? ''}`.toLowerCase();
+  if (texto.includes('legal') || texto.includes('permiso') || texto.includes('licencia') || texto.includes('financiamiento')) {
+    return valor <= 2 ? '4-8 semanas' : '2-4 semanas';
+  }
+  if (texto.includes('plan') || texto.includes('proceso') || texto.includes('dashboard') || texto.includes('indicador')) {
+    return valor <= 2 ? '2-3 semanas' : '1-2 semanas';
+  }
+  if (texto.includes('reunión') || texto.includes('semanal')) return 'Recurrente semanal';
+  if (texto.includes('mensual') || texto.includes('mes')) return valor <= 2 ? 'Este mes' : 'Próxima revisión';
+  return valor <= 2 ? '1-2 semanas' : '1 semana';
+}
+
+function getRecurrencia(pregunta: Area['preguntas'][number]) {
+  const texto = `${pregunta.texto} ${pregunta.descripcion ?? ''}`.toLowerCase();
+  if (texto.includes('semanal') || texto.includes('cada semana') || texto.includes('reunión semanal')) return 'semanal' as const;
+  if (texto.includes('mensual') || texto.includes('cada mes')) return 'mensual' as const;
+  return undefined;
+}
+
+function buildAccionDesdePregunta(area: Area, pregunta: Area['preguntas'][number], valor: number, prioridad: number): AccionItem {
+  const opcionActual = pregunta.opciones.find((opcion) => opcion.valor === valor);
+  const opcionObjetivo = pregunta.opciones[pregunta.opciones.length - 1];
+  const tipo = getTipoAccionPorRespuesta(valor);
+  const fase = getFasePorRespuesta(valor);
+  const recurrencia = getRecurrencia(pregunta);
+  const verb =
+    valor <= 1 ? 'Crear base operativa para' :
+    valor === 2 ? 'Formalizar y poner en uso' :
+    'Estandarizar y medir';
+  const accion = `${verb}: ${pregunta.texto.replace(/[¿?]/g, '')}`;
+  const detalle = [
+    `Respuesta actual: ${opcionActual?.texto ?? `nivel ${valor}`}.`,
+    `Resultado esperado: ${opcionObjetivo?.texto ?? 'nivel adecuado documentado y medible'}.`,
+    pregunta.descripcion ? `Contexto: ${pregunta.descripcion}.` : '',
+    recurrencia === 'semanal'
+      ? 'Primero prepara el formato o agenda base; despues ejecuta la rutina cada semana para no improvisar.'
+      : 'Documenta el criterio, asigna responsable, ejecútalo en un caso real y revisa evidencia de cumplimiento.',
+  ].filter(Boolean).join(' ');
+
+  return {
+    areaId: area.id,
+    areaNombre: area.nombre,
+    icono: area.icono,
+    prioridad,
+    accion,
+    detalle,
+    plazo: getPlazoPorPregunta(pregunta, valor),
+    tipo,
+    preguntaId: pregunta.id,
+    subarea: pregunta.subarea,
+    respuestaActual: opcionActual?.texto,
+    respuestaObjetivo: opcionObjetivo?.texto,
+    fase,
+    paralelo: true,
+    recurrencia,
+  };
+}
+
 function getNivel(score: number): { nivel: ResultadosDiagnostico['nivel']; texto: string; color: string } {
   if (score < 30) return { nivel: 'critico', texto: 'Crítico — Acción inmediata necesaria', color: '#ef4444' };
   if (score < 50) return { nivel: 'bajo', texto: 'Bajo — Fundamentos por construir', color: '#f97316' };
@@ -247,8 +325,16 @@ export function calcularResultados(
       };
     });
 
-  // Plan de acción: all areas sorted by score, with appropriate action type
-  const planAccion: AccionItem[] = areasOrdenadas.map(({ area, score }, idx) => {
+  const accionesPorRespuesta: AccionItem[] = areasOrdenadas.flatMap(({ area }) =>
+    area.preguntas
+      .filter((pregunta) => respuestas[pregunta.id] !== undefined && respuestas[pregunta.id] < 4)
+      .sort((a, b) => (respuestas[a.id] ?? 4) - (respuestas[b.id] ?? 4))
+      .map((pregunta) => buildAccionDesdePregunta(area, pregunta, respuestas[pregunta.id] ?? 1, 0))
+  );
+
+  const planAccion: AccionItem[] = accionesPorRespuesta.length > 0
+    ? accionesPorRespuesta.map((accion, idx) => ({ ...accion, prioridad: idx + 1 }))
+    : areasOrdenadas.map(({ area, score }, idx) => {
     const tipo = getTipoAccion(score);
     const accionData =
       tipo === 'crecimiento'

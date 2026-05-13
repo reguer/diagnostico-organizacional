@@ -8,6 +8,8 @@ import {
   YAxis,
 } from 'recharts';
 import { AREAS } from '../../data/diagnostico';
+import { calcularResultados } from '../../lib/calculator';
+import { filtrarPreguntas } from '../../lib/filterQuestions';
 import { getHistorialDiagnosticos } from '../../lib/storage';
 
 function getLevelColor(score: number) {
@@ -19,7 +21,10 @@ function getLevelColor(score: number) {
 }
 
 export function ReportsPanel() {
-  const historial = getHistorialDiagnosticos();
+  const historial = getHistorialDiagnosticos().map((item) => ({
+    ...item,
+    resultado: calcularResultados(item.respuestas, filtrarPreguntas(AREAS, item.config)),
+  }));
   const chronological = [...historial].reverse();
   const scoreData = chronological.map((item) => ({
     fecha: new Date(item.fecha).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' }),

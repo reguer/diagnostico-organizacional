@@ -60,3 +60,12 @@
 - Agregada navegacion directa entre areas del formulario para avanzar o retroceder y corregir respuestas.
 - Agregada descarga del plan semanal en formato tabla CSV por semana o plan completo.
 - Actualizados los indicadores KPI/KRI para abrir o cerrar todos, o mantener varias areas abiertas a la vez.
+
+## 2026-05-13 - Plan integral desde respuestas reales
+
+- Corregido el plan de accion para generar una accion por cada respuesta no optima, no solo una tarea por area.
+- La plataforma recalcula los diagnosticos guardados, incluido el usuario local `reguer`, sin borrar respuestas.
+- Agregado plan semanal sin limite fijo de 4 semanas, con trabajo en paralelo por area y recurrencias semanales visibles.
+- Agregado formato descargable Notion-ready de epics and stories desde el tablero de tareas.
+- Agregadas vistas de Diagnostico, Plan semanal e Indicadores dentro de la plataforma de seguimiento.
+- Ampliado el catalogo de KPIs/KRIs para cubrir finanzas, operaciones, mercadeo, personas y estrategia con mas granularidad.
