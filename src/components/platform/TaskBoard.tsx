@@ -10,6 +10,7 @@ import {
 } from '../../lib/activePlan';
 import type { EstadoTarea } from '../../lib/storage';
 import { TaskNote } from './TaskNote';
+import { addActivity, getAssignedMember } from '../../lib/team';
 
 interface TaskBoardProps {
   tasks: PlanTask[];
@@ -39,6 +40,10 @@ export function TaskBoard({ tasks, onChanged }: TaskBoardProps) {
 
   function moveTask(taskId: string, estado: EstadoTarea) {
     setTaskStatus(taskId, estado);
+    if (estado === 'completada') {
+      const assigned = getAssignedMember(taskId);
+      addActivity(assigned?.nombre ?? 'Usuario local', 'completo una tarea', taskId);
+    }
     onChanged();
   }
 

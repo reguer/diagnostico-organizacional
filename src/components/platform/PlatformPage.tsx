@@ -9,8 +9,9 @@ import { FinanzasBasicas } from './FinanzasBasicas';
 import { GoalsPanel } from './GoalsPanel';
 import { KpiTracker } from './KpiTracker';
 import { TaskBoard } from './TaskBoard';
+import { TeamPanel } from './TeamPanel';
 
-type PlatformTab = 'tareas' | 'metas' | 'kpis' | 'finanzas' | 'calendario';
+type PlatformTab = 'tareas' | 'metas' | 'kpis' | 'finanzas' | 'calendario' | 'equipo';
 
 interface PlatformPageProps {
   onGoDiagnostic: () => void;
@@ -22,6 +23,7 @@ const tabs: Array<{ id: PlatformTab; label: string }> = [
   { id: 'kpis', label: 'KPIs' },
   { id: 'finanzas', label: 'Finanzas' },
   { id: 'calendario', label: 'Calendario' },
+  { id: 'equipo', label: 'Equipo' },
 ];
 
 export function PlatformPage({ onGoDiagnostic }: PlatformPageProps) {
@@ -50,7 +52,7 @@ export function PlatformPage({ onGoDiagnostic }: PlatformPageProps) {
         <div className="mx-auto max-w-6xl px-4 py-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-indigo-600">Version en proceso · Etapa 5</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-indigo-600">Version en proceso · Etapa 6</p>
               <h1 className="text-2xl font-black text-slate-900">Plataforma de Seguimiento</h1>
               <p className="mt-1 text-sm text-slate-500">Diagnostico, ejecucion, metas, calendario y sincronizacion cloud opcional.</p>
             </div>
@@ -111,6 +113,7 @@ export function PlatformPage({ onGoDiagnostic }: PlatformPageProps) {
             {tab === 'kpis' && <KpiTracker onChanged={refresh} />}
             {tab === 'finanzas' && <FinanzasBasicas onChanged={refresh} />}
             {tab === 'calendario' && <CalendarView tasks={tasks} metas={metas} onChanged={refresh} />}
+            {tab === 'equipo' && <TeamPanel tasks={tasks} onChanged={refresh} />}
           </div>
         )}
       </main>

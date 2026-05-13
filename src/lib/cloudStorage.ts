@@ -1,5 +1,6 @@
 import { getCustomTasks } from './activePlan';
 import { getBadgesDesbloqueados, getEstadosTareas, getHistorialDiagnosticos } from './storage';
+import { getActivity, getTaskAssignments, getTeamMembers } from './team';
 import { getFinanzas, getKpiSeries, getMetas, KPI_DEFINITIONS } from './metricas';
 import { isSupabaseConfigured, supabase } from './supabaseClient';
 
@@ -75,6 +76,9 @@ export async function syncLocalDataToCloud(userId: string) {
   const finanzas = getFinanzas();
   const badges = getBadgesDesbloqueados();
   const customTasks = getCustomTasks();
+  const teamMembers = getTeamMembers();
+  const assignments = getTaskAssignments();
+  const activity = getActivity();
 
   if (diagnosticos.length > 0) {
     const { error } = await client.from('diagnosticos').upsert(
@@ -173,6 +177,48 @@ export async function syncLocalDataToCloud(userId: string) {
     if (error) throw error;
   }
 
+  if (teamMembers.length > 0) {
+    const { error } = await client.from('team_members').upsert(
+      teamMembers.map((member) => ({
+        id: member.id,
+        owner_user_id: userId,
+        email: member.email,
+        nombre: member.nombre,
+        role: member.role,
+        status: member.status,
+        created_at: member.createdAt,
+      })),
+    );
+    if (error) throw error;
+  }
+
+  if (assignments.length > 0) {
+    const { error } = await client.from('task_assignments').upsert(
+      assignments.map((assignment) => ({
+        owner_user_id: userId,
+        task_id: assignment.taskId,
+        member_id: assignment.memberId,
+        updated_at: assignment.updatedAt,
+      })),
+      { onConflict: 'owner_user_id,task_id' },
+    );
+    if (error) throw error;
+  }
+
+  if (activity.length > 0) {
+    const { error } = await client.from('activity_feed').upsert(
+      activity.map((item) => ({
+        id: item.id,
+        owner_user_id: userId,
+        actor: item.actor,
+        action: item.action,
+        task_id: item.taskId ?? null,
+        created_at: item.createdAt,
+      })),
+    );
+    if (error) throw error;
+  }
+
   return {
     diagnosticos: diagnosticos.length,
     tareas: tareas.length + customTasks.length,
@@ -180,5 +226,8 @@ export async function syncLocalDataToCloud(userId: string) {
     kpis: kpiRows.length,
     finanzas: finanzas.length,
     badges: badges.length,
+    teamMembers: teamMembers.length,
+    assignments: assignments.length,
+    activity: activity.length,
   };
 }

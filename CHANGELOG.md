@@ -31,3 +31,12 @@
 - Agregada migracion de datos locales a nube para diagnosticos, tareas, metas, KPIs, finanzas y badges.
 - Agregado esquema SQL con Row Level Security en `docs/supabase-schema.sql`.
 - Agregado `.env.example` y variables de GitHub Actions para build en Pages.
+
+## 2026-05-13 - Etapa 6: Colaboracion y equipo
+
+- Agregada pestaña `Equipo` en la plataforma alterna.
+- Agregado registro local de invitaciones por email con roles Admin, Colaborador y Solo lectura.
+- Agregada asignacion de tareas a miembros del equipo y filtro de "Mis tareas" por responsable.
+- Agregado feed de actividad local para invitaciones, cambios de rol, asignaciones y tareas completadas.
+- Extendida sincronizacion Supabase para miembros, asignaciones y feed.
+- Extendida `docs/supabase-schema.sql` con tablas `team_members`, `task_assignments` y `activity_feed` con RLS.

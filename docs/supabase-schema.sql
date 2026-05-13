@@ -74,6 +74,33 @@ create table if not exists public.badges_desbloqueados (
   primary key (user_id, badge_id)
 );
 
+create table if not exists public.team_members (
+  id text primary key,
+  owner_user_id uuid not null references auth.users(id) on delete cascade,
+  email text not null,
+  nombre text not null,
+  role text not null check (role in ('admin', 'colaborador', 'lectura')),
+  status text not null check (status in ('invitado', 'activo')),
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.task_assignments (
+  owner_user_id uuid not null references auth.users(id) on delete cascade,
+  task_id text not null,
+  member_id text not null references public.team_members(id) on delete cascade,
+  updated_at timestamptz not null default now(),
+  primary key (owner_user_id, task_id)
+);
+
+create table if not exists public.activity_feed (
+  id text primary key,
+  owner_user_id uuid not null references auth.users(id) on delete cascade,
+  actor text not null,
+  action text not null,
+  task_id text,
+  created_at timestamptz not null default now()
+);
+
 alter table public.business_profiles enable row level security;
 alter table public.diagnosticos enable row level security;
 alter table public.tareas_estado enable row level security;
@@ -81,6 +108,9 @@ alter table public.metas enable row level security;
 alter table public.kpi_registros enable row level security;
 alter table public.finanzas_basicas enable row level security;
 alter table public.badges_desbloqueados enable row level security;
+alter table public.team_members enable row level security;
+alter table public.task_assignments enable row level security;
+alter table public.activity_feed enable row level security;
 
 create policy "business_profiles_owner_all" on public.business_profiles
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
@@ -102,3 +132,12 @@ create policy "finanzas_basicas_owner_all" on public.finanzas_basicas
 
 create policy "badges_desbloqueados_owner_all" on public.badges_desbloqueados
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create policy "team_members_owner_all" on public.team_members
+  for all using (auth.uid() = owner_user_id) with check (auth.uid() = owner_user_id);
+
+create policy "task_assignments_owner_all" on public.task_assignments
+  for all using (auth.uid() = owner_user_id) with check (auth.uid() = owner_user_id);
+
+create policy "activity_feed_owner_all" on public.activity_feed
+  for all using (auth.uid() = owner_user_id) with check (auth.uid() = owner_user_id);
