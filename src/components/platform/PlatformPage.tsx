@@ -3,6 +3,7 @@ import { getActiveTasks } from '../../lib/activePlan';
 import { getHistorialDiagnosticos } from '../../lib/storage';
 import { ensureSuggestedGoals, getMetas } from '../../lib/metricas';
 import { AddTaskModal } from './AddTaskModal';
+import { AuthPanel } from './AuthPanel';
 import { CalendarView } from './CalendarView';
 import { FinanzasBasicas } from './FinanzasBasicas';
 import { GoalsPanel } from './GoalsPanel';
@@ -49,9 +50,9 @@ export function PlatformPage({ onGoDiagnostic }: PlatformPageProps) {
         <div className="mx-auto max-w-6xl px-4 py-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-indigo-600">Version en proceso</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-indigo-600">Version en proceso · Etapa 5</p>
               <h1 className="text-2xl font-black text-slate-900">Plataforma de Seguimiento</h1>
-              <p className="mt-1 text-sm text-slate-500">Diagnostico, ejecucion, metas y calendario en modo local.</p>
+              <p className="mt-1 text-sm text-slate-500">Diagnostico, ejecucion, metas, calendario y sincronizacion cloud opcional.</p>
             </div>
             <div className="flex gap-2">
               <button type="button" onClick={onGoDiagnostic} className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600">Diagnostico original</button>
@@ -70,6 +71,8 @@ export function PlatformPage({ onGoDiagnostic }: PlatformPageProps) {
           </section>
         ) : (
           <div className="space-y-5">
+            <AuthPanel onChanged={refresh} />
+
             {daysSinceDiagnostic >= 28 && (
               <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4 text-sm font-semibold text-amber-800">
                 Han pasado {daysSinceDiagnostic} dias. Ya puedes medir tu progreso con un nuevo diagnostico.

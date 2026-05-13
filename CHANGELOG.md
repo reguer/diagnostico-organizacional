@@ -23,3 +23,11 @@
 - Agregado calendario mensual con reasignacion de tareas por drag and drop y exportacion `.ics`.
 - Configurado `base` de Vite para GitHub Pages en `/diagnostico-organizacional/`.
 - Agregado workflow de GitHub Pages para desplegar `dist`.
+
+## 2026-05-13 - Etapa 5: Cuentas y sincronizacion cloud preparada
+
+- Agregado cliente Supabase opcional con `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`.
+- Agregado panel de cuenta en `#/plataforma` para login, registro, cierre de sesion, perfil de negocio y sincronizacion.
+- Agregada migracion de datos locales a nube para diagnosticos, tareas, metas, KPIs, finanzas y badges.
+- Agregado esquema SQL con Row Level Security en `docs/supabase-schema.sql`.
+- Agregado `.env.example` y variables de GitHub Actions para build en Pages.
