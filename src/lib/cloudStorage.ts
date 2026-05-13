@@ -1,7 +1,38 @@
-import { getCustomTasks } from './activePlan';
-import { getBadgesDesbloqueados, getEstadosTareas, getHistorialDiagnosticos } from './storage';
-import { getActivity, getTaskAssignments, getTeamMembers } from './team';
-import { getFinanzas, getKpiSeries, getMetas, KPI_DEFINITIONS } from './metricas';
+import { getCustomTasks, replaceCustomTasks, type PlanTask } from './activePlan';
+import {
+  getBadgesDesbloqueados,
+  getEstadosTareas,
+  getHistorialDiagnosticos,
+  replaceEstadosTareas,
+  replaceHistorialDiagnosticos,
+  saveBadgesDesbloqueados,
+  type DiagnosticoGuardado,
+  type EstadoTarea,
+  type EstadoTareaGuardado,
+} from './storage';
+import {
+  getActivity,
+  getTaskAssignments,
+  getTeamMembers,
+  replaceActivity,
+  replaceTaskAssignments,
+  replaceTeamMembers,
+  type ActivityItem,
+  type TaskAssignment,
+  type TeamMember,
+  type TeamRole,
+} from './team';
+import {
+  getFinanzas,
+  getKpiSeries,
+  getMetas,
+  KPI_DEFINITIONS,
+  replaceFinanzas,
+  replaceKpiSeries,
+  replaceMetas,
+  type EstadoMeta,
+  type FinanzasRegistro,
+} from './metricas';
 import { isSupabaseConfigured, supabase } from './supabaseClient';
 
 export interface BusinessProfileInput {
@@ -229,5 +260,182 @@ export async function syncLocalDataToCloud(userId: string) {
     teamMembers: teamMembers.length,
     assignments: assignments.length,
     activity: activity.length,
+  };
+}
+
+interface CloudDiagnosticRow {
+  id: string;
+  fecha: string;
+  config: DiagnosticoGuardado['config'];
+  respuestas: Record<string, number>;
+  resultado: DiagnosticoGuardado['resultado'];
+}
+
+interface CloudTaskRow {
+  task_id: string;
+  estado: EstadoTarea;
+  nota: string | null;
+  fecha_asignada: string | null;
+  fecha_completada: string | null;
+  payload: Partial<EstadoTareaGuardado> | PlanTask | null;
+  updated_at: string;
+}
+
+interface CloudMetaRow {
+  id: string;
+  descripcion: string;
+  valor_objetivo: number | null;
+  fecha_limite: string;
+  area_id: string;
+  estado: EstadoMeta;
+  sugerida: boolean;
+}
+
+interface CloudKpiRow {
+  kpi_id: string;
+  mes: string;
+  valor: number;
+}
+
+interface CloudFinanceRow {
+  mes: string;
+  ingresos: number;
+  gastos: Record<string, number>;
+}
+
+interface CloudTeamMemberRow {
+  id: string;
+  email: string;
+  nombre: string;
+  role: TeamRole;
+  status: 'invitado' | 'activo';
+  created_at: string;
+}
+
+interface CloudAssignmentRow {
+  task_id: string;
+  member_id: string;
+  updated_at: string;
+}
+
+interface CloudActivityRow {
+  id: string;
+  actor: string;
+  action: string;
+  task_id: string | null;
+  created_at: string;
+}
+
+export async function restoreCloudDataToLocal(userId: string) {
+  const client = requireSupabase();
+
+  const [
+    diagnosticosRes,
+    tareasRes,
+    metasRes,
+    kpisRes,
+    finanzasRes,
+    badgesRes,
+    membersRes,
+    assignmentsRes,
+    activityRes,
+  ] = await Promise.all([
+    client.from('diagnosticos').select('id, fecha, config, respuestas, resultado').eq('user_id', userId).order('fecha', { ascending: false }),
+    client.from('tareas_estado').select('task_id, estado, nota, fecha_asignada, fecha_completada, payload, updated_at').eq('user_id', userId),
+    client.from('metas').select('id, descripcion, valor_objetivo, fecha_limite, area_id, estado, sugerida').eq('user_id', userId),
+    client.from('kpi_registros').select('kpi_id, mes, valor').eq('user_id', userId),
+    client.from('finanzas_basicas').select('mes, ingresos, gastos').eq('user_id', userId),
+    client.from('badges_desbloqueados').select('badge_id').eq('user_id', userId),
+    client.from('team_members').select('id, email, nombre, role, status, created_at').eq('owner_user_id', userId),
+    client.from('task_assignments').select('task_id, member_id, updated_at').eq('owner_user_id', userId),
+    client.from('activity_feed').select('id, actor, action, task_id, created_at').eq('owner_user_id', userId).order('created_at', { ascending: false }),
+  ]);
+
+  const errors = [diagnosticosRes, tareasRes, metasRes, kpisRes, finanzasRes, badgesRes, membersRes, assignmentsRes, activityRes]
+    .map((result) => result.error)
+    .filter(Boolean);
+  if (errors[0]) throw errors[0];
+
+  const diagnosticos = (diagnosticosRes.data ?? []) as CloudDiagnosticRow[];
+  replaceHistorialDiagnosticos(diagnosticos.map((item) => ({
+    id: item.id,
+    fecha: item.fecha,
+    config: item.config,
+    respuestas: item.respuestas,
+    resultado: item.resultado,
+  })));
+
+  const taskRows = (tareasRes.data ?? []) as CloudTaskRow[];
+  const runtimeRows: EstadoTareaGuardado[] = taskRows.map((item) => ({
+    id: item.task_id,
+    estado: item.estado,
+    nota: item.nota ?? undefined,
+    fechaAsignada: item.fecha_asignada ?? undefined,
+    fechaCompletada: item.fecha_completada ?? undefined,
+    fechaActualizacion: item.updated_at,
+  }));
+  replaceEstadosTareas(runtimeRows);
+  replaceCustomTasks(taskRows
+    .map((item) => item.payload)
+    .filter((payload): payload is PlanTask => Boolean(payload && 'origen' in payload && payload.origen === 'personalizada')));
+
+  replaceMetas(((metasRes.data ?? []) as CloudMetaRow[]).map((meta) => ({
+    id: meta.id,
+    descripcion: meta.descripcion,
+    valorObjetivo: meta.valor_objetivo ?? undefined,
+    fechaLimite: meta.fecha_limite,
+    areaId: meta.area_id,
+    estado: meta.estado,
+    sugerida: meta.sugerida,
+  })));
+
+  const kpiRows = (kpisRes.data ?? []) as CloudKpiRow[];
+  KPI_DEFINITIONS.forEach((kpi) => {
+    replaceKpiSeries(kpi.id, kpiRows
+      .filter((row) => row.kpi_id === kpi.id)
+      .map((row) => ({ mes: row.mes, valor: row.valor })));
+  });
+
+  replaceFinanzas(((finanzasRes.data ?? []) as CloudFinanceRow[]).map((row) => ({
+    mes: row.mes,
+    ingresos: row.ingresos,
+    gastos: row.gastos,
+  } satisfies FinanzasRegistro)));
+
+  saveBadgesDesbloqueados((badgesRes.data ?? []).map((row: { badge_id: string }) => row.badge_id));
+
+  replaceTeamMembers(((membersRes.data ?? []) as CloudTeamMemberRow[]).map((member) => ({
+    id: member.id,
+    email: member.email,
+    nombre: member.nombre,
+    role: member.role,
+    status: member.status,
+    createdAt: member.created_at,
+  } satisfies TeamMember)));
+
+  replaceTaskAssignments(((assignmentsRes.data ?? []) as CloudAssignmentRow[]).map((assignment) => ({
+    taskId: assignment.task_id,
+    memberId: assignment.member_id,
+    updatedAt: assignment.updated_at,
+  } satisfies TaskAssignment)));
+
+  replaceActivity(((activityRes.data ?? []) as CloudActivityRow[]).map((item) => ({
+    id: item.id,
+    actor: item.actor,
+    action: item.action,
+    taskId: item.task_id ?? undefined,
+    createdAt: item.created_at,
+  } satisfies ActivityItem)));
+
+  return {
+    diagnosticos: diagnosticos.length,
+    tareas: taskRows.length,
+    metas: (metasRes.data ?? []).length,
+    kpis: kpiRows.length,
+    finanzas: (finanzasRes.data ?? []).length,
+    badges: (badgesRes.data ?? []).length,
+    teamMembers: (membersRes.data ?? []).length,
+    assignments: (assignmentsRes.data ?? []).length,
+    activity: (activityRes.data ?? []).length,
   };
 }

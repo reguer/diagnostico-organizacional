@@ -61,6 +61,10 @@ export function saveDiagnostico(diagnostico: DiagnosticoGuardado) {
   return diagnostico;
 }
 
+export function replaceHistorialDiagnosticos(historial: DiagnosticoGuardado[]) {
+  writeJson(HISTORIAL_KEY, historial);
+}
+
 export function deleteDiagnostico(id: string) {
   const historial = getHistorialDiagnosticos().filter((item) => item.id !== id);
   writeJson(HISTORIAL_KEY, historial);
@@ -133,6 +137,17 @@ export function getEstadosTareas() {
     }
   }
   return estados;
+}
+
+export function replaceEstadosTareas(estados: EstadoTareaGuardado[]) {
+  if (!canUseStorage()) return;
+  const keysToRemove: string[] = [];
+  for (let i = 0; i < window.localStorage.length; i += 1) {
+    const key = window.localStorage.key(i);
+    if (key?.startsWith(TAREA_PREFIX)) keysToRemove.push(key);
+  }
+  keysToRemove.forEach((key) => window.localStorage.removeItem(key));
+  estados.forEach((estado) => writeJson(`${TAREA_PREFIX}${estado.id}`, estado));
 }
 
 export function getBadgesDesbloqueados() {

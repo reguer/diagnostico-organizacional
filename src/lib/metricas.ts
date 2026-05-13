@@ -53,6 +53,10 @@ export function getMetas() {
   return readJson<Meta[]>(METAS_KEY, []);
 }
 
+export function replaceMetas(metas: Meta[]) {
+  writeJson(METAS_KEY, metas);
+}
+
 export function saveMeta(meta: Omit<Meta, 'id'>) {
   const nueva: Meta = { ...meta, id: `meta-${Date.now()}-${Math.random().toString(36).slice(2, 7)}` };
   writeJson(METAS_KEY, [nueva, ...getMetas()]);
@@ -87,6 +91,10 @@ export function getKpiSeries(kpiId: string) {
   return readJson<KpiRegistro[]>(kpiKey(kpiId), []);
 }
 
+export function replaceKpiSeries(kpiId: string, series: KpiRegistro[]) {
+  writeJson(kpiKey(kpiId), series.sort((a, b) => a.mes.localeCompare(b.mes)));
+}
+
 export function saveKpiRegistro(kpiId: string, registro: KpiRegistro) {
   const serie = getKpiSeries(kpiId).filter((item) => item.mes !== registro.mes);
   writeJson(kpiKey(kpiId), [...serie, registro].sort((a, b) => a.mes.localeCompare(b.mes)));
@@ -94,6 +102,10 @@ export function saveKpiRegistro(kpiId: string, registro: KpiRegistro) {
 
 export function getFinanzas() {
   return readJson<FinanzasRegistro[]>(FINANZAS_KEY, []);
+}
+
+export function replaceFinanzas(registros: FinanzasRegistro[]) {
+  writeJson(FINANZAS_KEY, registros.sort((a, b) => b.mes.localeCompare(a.mes)));
 }
 
 export function saveFinanzas(registro: FinanzasRegistro) {

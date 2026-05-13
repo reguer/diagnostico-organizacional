@@ -40,3 +40,16 @@
 - Agregado feed de actividad local para invitaciones, cambios de rol, asignaciones y tareas completadas.
 - Extendida sincronizacion Supabase para miembros, asignaciones y feed.
 - Extendida `docs/supabase-schema.sql` con tablas `team_members`, `task_assignments` y `activity_feed` con RLS.
+
+## 2026-05-13 - Produccion cloud: restauracion y reportes
+
+- Agregada restauracion de datos Supabase hacia localStorage para usar la plataforma desde un navegador nuevo.
+- Agregado boton "Restaurar nube a este navegador" en el panel de cuenta.
+- Agregada pestaña `Reportes` con evolucion del score general, ultimo diagnostico y tabla historica por area.
+- Agregadas utilidades de reemplazo local para diagnosticos, tareas, metas, KPIs, finanzas, equipo y actividad.
+
+## 2026-05-13 - Acceso local con usuario y contrasena
+
+- Agregada cuenta local para entrar a seguimiento cuando Supabase aun no esta configurado.
+- Agregado alta/login/logout local con usuario y contrasena hasheada en el navegador.
+- El modo local mantiene respuestas, tareas, metas y equipo en `localStorage`.

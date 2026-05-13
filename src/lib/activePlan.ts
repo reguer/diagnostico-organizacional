@@ -76,6 +76,10 @@ export function getCustomTasks() {
   return readJson<PlanTask[]>(CUSTOM_TASKS_KEY, []);
 }
 
+export function replaceCustomTasks(tasks: PlanTask[]) {
+  writeJson(CUSTOM_TASKS_KEY, tasks);
+}
+
 export function saveCustomTask(input: CustomTaskInput) {
   const area = AREAS.find((item) => item.id === input.areaId) ?? AREAS[0];
   const task: PlanTask = {

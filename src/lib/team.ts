@@ -33,6 +33,10 @@ export function getTeamMembers() {
   return readJson<TeamMember[]>(TEAM_MEMBERS_KEY, []);
 }
 
+export function replaceTeamMembers(members: TeamMember[]) {
+  writeJson(TEAM_MEMBERS_KEY, members);
+}
+
 export function inviteTeamMember(email: string, role: TeamRole, nombre?: string) {
   const members = getTeamMembers();
   const existing = members.find((member) => member.email.toLowerCase() === email.toLowerCase());
@@ -63,6 +67,10 @@ export function getTaskAssignments() {
   return readJson<TaskAssignment[]>(ASSIGNMENTS_KEY, []);
 }
 
+export function replaceTaskAssignments(assignments: TaskAssignment[]) {
+  writeJson(ASSIGNMENTS_KEY, assignments);
+}
+
 export function assignTask(taskId: string, memberId: string) {
   const assignments = getTaskAssignments().filter((item) => item.taskId !== taskId);
   const assignment: TaskAssignment = { taskId, memberId, updatedAt: new Date().toISOString() };
@@ -80,6 +88,10 @@ export function getAssignedMember(taskId: string) {
 
 export function getActivity() {
   return readJson<ActivityItem[]>(ACTIVITY_KEY, []);
+}
+
+export function replaceActivity(activity: ActivityItem[]) {
+  writeJson(ACTIVITY_KEY, activity);
 }
 
 export function addActivity(actor: string, action: string, taskId?: string) {
