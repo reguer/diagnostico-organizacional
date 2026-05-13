@@ -6,9 +6,15 @@ interface KpiKriSectionProps {
 }
 
 export function KpiKriSection({ areas }: KpiKriSectionProps) {
-  const [expandida, setExpandida] = useState<string | null>(areas[0]?.areaId ?? null);
+  const [expandidas, setExpandidas] = useState<string[]>(areas[0]?.areaId ? [areas[0].areaId] : []);
 
   if (areas.length === 0) return null;
+
+  function toggleArea(areaId: string) {
+    setExpandidas((prev) =>
+      prev.includes(areaId) ? prev.filter((id) => id !== areaId) : [...prev, areaId]
+    );
+  }
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-100">
@@ -20,15 +26,31 @@ export function KpiKriSection({ areas }: KpiKriSectionProps) {
           <strong className="text-slate-600">KPI</strong> = desempeño histórico (¿cómo lo estás haciendo?) ·{' '}
           <strong className="text-slate-600">KRI</strong> = señal de alerta temprana (¿qué podría fallar?)
         </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setExpandidas(areas.map((area) => area.areaId))}
+            className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100"
+          >
+            Abrir todos
+          </button>
+          <button
+            type="button"
+            onClick={() => setExpandidas([])}
+            className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100"
+          >
+            Cerrar todos
+          </button>
+        </div>
       </div>
 
       <div className="divide-y divide-slate-50">
         {areas.map((area) => {
-          const abierta = expandida === area.areaId;
+          const abierta = expandidas.includes(area.areaId);
           return (
             <div key={area.areaId}>
               <button
-                onClick={() => setExpandida(abierta ? null : area.areaId)}
+                onClick={() => toggleArea(area.areaId)}
                 className="w-full flex items-center gap-3 px-6 py-4 hover:bg-slate-50 transition-colors text-left"
               >
                 <span className="text-xl">{area.icono}</span>

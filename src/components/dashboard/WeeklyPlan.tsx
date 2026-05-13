@@ -13,6 +13,73 @@ const TIPO_CONFIG: Record<TipoTarea, { label: string; bg: string; text: string; 
 
 const DIAS_ORDEN = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
+function csvCell(value: unknown) {
+  const text = String(value ?? '').replace(/\s+/g, ' ').trim();
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function downloadCsv(filename: string, rows: string[][]) {
+  const csv = rows.map((row) => row.map(csvCell).join(',')).join('\n');
+  const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function planToTableRows(plan: PlanSemanal[]) {
+  const header = [
+    'Semana',
+    'Plazo',
+    'Objetivo semanal',
+    'Dia',
+    'Hora',
+    'Area',
+    'Tipo',
+    'Titulo',
+    'Detalle',
+    'Duracion',
+    'Herramienta',
+    'Automatizacion',
+    'KPI',
+    'KRI',
+  ];
+
+  const rows = plan.flatMap((semana) =>
+    semana.tareas.map((tarea) => [
+      semana.semana,
+      semana.plazo,
+      semana.objetivo,
+      tarea.dia,
+      tarea.hora ?? '',
+      tarea.areaNombre,
+      TIPO_CONFIG[tarea.tipo].label,
+      tarea.titulo,
+      tarea.detalle,
+      tarea.duracion,
+      tarea.herramienta ?? '',
+      tarea.automatizacion ?? '',
+      tarea.kpiMejora ?? '',
+      tarea.kriMitiga ?? '',
+    ])
+  );
+
+  return [header, ...rows];
+}
+
+function fileSafe(value: string) {
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
 export function WeeklyPlan({ plan }: WeeklyPlanProps) {
   const [semanaActiva, setSemanaActiva] = useState(0);
   const semana = plan[semanaActiva];
@@ -63,6 +130,23 @@ export function WeeklyPlan({ plan }: WeeklyPlanProps) {
           <span className="flex-shrink-0 text-xs font-semibold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg whitespace-nowrap">
             {semana.focusArea}
           </span>
+        </div>
+
+        <div className="mb-4 grid gap-2 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => downloadCsv(`plan-${fileSafe(semana.semana)}.csv`, planToTableRows([semana]))}
+            className="rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-100"
+          >
+            Descargar esta semana en tabla CSV
+          </button>
+          <button
+            type="button"
+            onClick={() => downloadCsv('plan-semanal-completo.csv', planToTableRows(plan))}
+            className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100"
+          >
+            Descargar todo el plan CSV
+          </button>
         </div>
 
         {/* Goals for the week */}

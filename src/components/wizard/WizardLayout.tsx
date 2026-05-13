@@ -9,6 +9,7 @@ interface WizardLayoutProps {
   children: ReactNode;
   onAnterior: () => void;
   onSiguiente: () => void;
+  onIrAArea: (idx: number) => void;
   onFinalizar: () => void;
   onAbrirPlataforma: () => void;
 }
@@ -20,6 +21,7 @@ export function WizardLayout({
   children,
   onAnterior,
   onSiguiente,
+  onIrAArea,
   onFinalizar,
   onAbrirPlataforma,
 }: WizardLayoutProps) {
@@ -79,8 +81,10 @@ export function WizardLayout({
               const activa = idx === areaActualIdx;
 
               return (
-                <div
+                <button
+                  type="button"
                   key={area.id}
+                  onClick={() => onIrAArea(idx)}
                   className={`
                     flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all
                     ${activa
@@ -94,7 +98,7 @@ export function WizardLayout({
                   <span>{area.icono}</span>
                   <span className="hidden sm:inline">{area.nombre}</span>
                   {completa && !activa && <span className="text-green-500">✓</span>}
-                </div>
+                </button>
               );
             })}
           </div>

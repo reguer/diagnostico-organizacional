@@ -64,6 +64,13 @@ function App() {
     }
   }
 
+  function handleIrAArea(idx: number) {
+    if (idx >= 0 && idx < areasActivas.length) {
+      setAreaActualIdx(idx);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }
+
   function handleFinalizar() {
     const res = calcularResultados(respuestas, areasActivas);
     const diagnostico = saveDiagnostico({
@@ -106,7 +113,7 @@ function App() {
   }
 
   if (vista === 'onboarding_tipo') {
-    return <BusinessTypeSelector onSelect={handleSeleccionarTipo} />;
+    return <BusinessTypeSelector onSelect={handleSeleccionarTipo} onAbrirPlataforma={handleAbrirPlataforma} />;
   }
 
   if (vista === 'onboarding_variable') {
@@ -154,6 +161,7 @@ function App() {
       respuestas={respuestas}
       onAnterior={handleAnterior}
       onSiguiente={handleSiguiente}
+      onIrAArea={handleIrAArea}
       onFinalizar={handleFinalizar}
       onAbrirPlataforma={handleAbrirPlataforma}
     >

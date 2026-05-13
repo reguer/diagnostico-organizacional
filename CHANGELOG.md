@@ -53,3 +53,10 @@
 - Agregada cuenta local para entrar a seguimiento cuando Supabase aun no esta configurado.
 - Agregado alta/login/logout local con usuario y contrasena hasheada en el navegador.
 - El modo local mantiene respuestas, tareas, metas y equipo en `localStorage`.
+
+## 2026-05-13 - Ajustes de captura y seguimiento
+
+- Agregado acceso con usuario y contrasena desde la primera pantalla del diagnostico.
+- Agregada navegacion directa entre areas del formulario para avanzar o retroceder y corregir respuestas.
+- Agregada descarga del plan semanal en formato tabla CSV por semana o plan completo.
+- Actualizados los indicadores KPI/KRI para abrir o cerrar todos, o mantener varias areas abiertas a la vez.
