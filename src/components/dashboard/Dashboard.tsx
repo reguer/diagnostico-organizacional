@@ -16,6 +16,7 @@ interface DashboardProps {
   resultado: ResultadosDiagnostico;
   config: ConfigDiagnostico;
   onReiniciar: () => void;
+  onAbrirPlataforma: () => void;
 }
 
 type Tab = 'resumen' | 'plan' | 'indicadores';
@@ -25,7 +26,7 @@ const VERSION_LABELS: Record<string, string> = {
   construccion: 'Construcción & Servicios',
 };
 
-export function Dashboard({ resultado, config, onReiniciar }: DashboardProps) {
+export function Dashboard({ resultado, config, onReiniciar, onAbrirPlataforma }: DashboardProps) {
   const [exportando, setExportando] = useState(false);
   const [vistaActiva, setVistaActiva] = useState<Tab>('resumen');
   const planSemanal = generarPlanSemanal(resultado);
@@ -62,6 +63,12 @@ export function Dashboard({ resultado, config, onReiniciar }: DashboardProps) {
               </p>
             </div>
             <div className="flex items-center gap-2">
+              <button
+                onClick={onAbrirPlataforma}
+                className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-indigo-100 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-all"
+              >
+                Plataforma
+              </button>
               <button
                 onClick={handleDescargarMd}
                 className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all"

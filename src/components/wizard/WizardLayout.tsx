@@ -10,6 +10,7 @@ interface WizardLayoutProps {
   onAnterior: () => void;
   onSiguiente: () => void;
   onFinalizar: () => void;
+  onAbrirPlataforma: () => void;
 }
 
 export function WizardLayout({
@@ -20,6 +21,7 @@ export function WizardLayout({
   onAnterior,
   onSiguiente,
   onFinalizar,
+  onAbrirPlataforma,
 }: WizardLayoutProps) {
   const areaActual = areas[areaActualIdx];
   const esUltima = areaActualIdx === areas.length - 1;
@@ -47,6 +49,15 @@ export function WizardLayout({
               <span className="text-xs text-slate-400">Total completado</span>
               <p className="text-sm font-bold text-indigo-600">{totalRespondidas}/{totalPreguntas}</p>
             </div>
+          </div>
+          <div className="mb-3 flex justify-end">
+            <button
+              type="button"
+              onClick={onAbrirPlataforma}
+              className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100"
+            >
+              Plataforma en proceso
+            </button>
           </div>
 
           <ProgressBar

@@ -4,21 +4,28 @@ import { filtrarPreguntas } from './lib/filterQuestions';
 import { calcularResultados, type ResultadosDiagnostico } from './lib/calculator';
 import type { ConfigDiagnostico, VersionDiagnostico, ActividadConstruccion } from './lib/config';
 import { CONFIG_DEFAULT } from './lib/config';
+import { createDiagnosticId, saveDiagnostico, type DiagnosticoGuardado } from './lib/storage';
 import { BusinessTypeSelector } from './components/onboarding/BusinessTypeSelector';
 import { BusinessVariableSelector } from './components/onboarding/BusinessVariableSelector';
 import { DiagnosticDepthSelector } from './components/onboarding/DiagnosticDepthSelector';
 import { WizardLayout } from './components/wizard/WizardLayout';
 import { AreaStep } from './components/wizard/AreaStep';
 import { Dashboard } from './components/dashboard/Dashboard';
+import { PlatformPage } from './components/platform/PlatformPage';
 
-type Vista = 'onboarding_tipo' | 'onboarding_variable' | 'onboarding_nivel' | 'wizard' | 'dashboard';
+type Vista = 'onboarding_tipo' | 'onboarding_variable' | 'onboarding_nivel' | 'wizard' | 'dashboard' | 'plataforma';
+
+function getInitialVista(): Vista {
+  return window.location.hash === '#/plataforma' ? 'plataforma' : 'onboarding_tipo';
+}
 
 function App() {
-  const [vista, setVista] = useState<Vista>('onboarding_tipo');
+  const [vista, setVista] = useState<Vista>(getInitialVista);
   const [config, setConfig] = useState<ConfigDiagnostico>(CONFIG_DEFAULT);
   const [areaActualIdx, setAreaActualIdx] = useState(0);
   const [respuestas, setRespuestas] = useState<Record<string, number>>({});
   const [resultado, setResultado] = useState<ResultadosDiagnostico | null>(null);
+  const [diagnosticoActual, setDiagnosticoActual] = useState<DiagnosticoGuardado | null>(null);
 
   const areasActivas = filtrarPreguntas(AREAS, config);
 
@@ -59,18 +66,43 @@ function App() {
 
   function handleFinalizar() {
     const res = calcularResultados(respuestas, areasActivas);
+    const diagnostico = saveDiagnostico({
+      id: createDiagnosticId(),
+      fecha: new Date().toISOString(),
+      config,
+      respuestas,
+      resultado: res,
+    });
     setResultado(res);
+    setDiagnosticoActual(diagnostico);
     setVista('dashboard');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   function handleReiniciar() {
+    window.location.hash = '';
     setVista('onboarding_tipo');
     setAreaActualIdx(0);
     setRespuestas({});
     setResultado(null);
+    setDiagnosticoActual(null);
     setConfig(CONFIG_DEFAULT);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function handleAbrirPlataforma() {
+    window.location.hash = '#/plataforma';
+    setVista('plataforma');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function handleAbrirDiagnostico() {
+    window.location.hash = '';
+    handleReiniciar();
+  }
+
+  if (vista === 'plataforma') {
+    return <PlatformPage onGoDiagnostic={handleAbrirDiagnostico} />;
   }
 
   if (vista === 'onboarding_tipo') {
@@ -96,8 +128,15 @@ function App() {
     );
   }
 
-  if (vista === 'dashboard' && resultado) {
-    return <Dashboard resultado={resultado} config={config} onReiniciar={handleReiniciar} />;
+  if (vista === 'dashboard' && resultado && diagnosticoActual) {
+    return (
+      <Dashboard
+        resultado={resultado}
+        config={config}
+        onReiniciar={handleReiniciar}
+        onAbrirPlataforma={handleAbrirPlataforma}
+      />
+    );
   }
 
   if (areasActivas.length === 0) {
@@ -116,6 +155,7 @@ function App() {
       onAnterior={handleAnterior}
       onSiguiente={handleSiguiente}
       onFinalizar={handleFinalizar}
+      onAbrirPlataforma={handleAbrirPlataforma}
     >
       <AreaStep
         area={areasActivas[areaActualIdx]}
