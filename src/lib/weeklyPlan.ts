@@ -17,6 +17,8 @@ export interface TareaSemanal {
   duracion: string;
   herramienta?: string;
   automatizacion?: string;
+  kpiMejora?: string;
+  kriMitiga?: string;
 }
 
 export interface PlanSemanal {
@@ -474,35 +476,6 @@ function nivelScore(score: number): NivelTarea {
 
 const DIAS: DiaSemana[] = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
-function getBucketsForWeek(nivel: NivelTarea, semana: number): NivelTarea[] {
-  const map: Record<NivelTarea, NivelTarea[][]> = {
-    critico: [
-      ['critico'],          // week 1: fix urgencies
-      ['critico', 'bajo'],  // week 2: last urgencies + build foundations
-      ['bajo', 'medio'],    // week 3: foundations + optimize
-      ['medio', 'optimo'],  // week 4: optimize + scale
-    ],
-    bajo: [
-      ['bajo'],             // week 1: build foundations
-      ['bajo', 'medio'],    // week 2: finish foundations + optimize
-      ['medio'],            // week 3: optimize
-      ['optimo'],           // week 4: scale
-    ],
-    medio: [
-      ['medio'],            // week 1: optimize
-      ['medio', 'optimo'],  // week 2: optimize + start scaling
-      ['optimo'],           // week 3: scale
-      ['optimo'],           // week 4: advanced scale
-    ],
-    optimo: [
-      ['optimo'],           // week 1: scale (already advanced)
-      ['optimo'],           // week 2
-      ['optimo'],           // week 3
-      ['optimo'],           // week 4
-    ],
-  };
-  return map[nivel][semana - 1] ?? ['optimo'];
-}
 
 const NOMBRES_FOCUS: Record<string, string> = {
   finanzas: 'Finanzas y Rentabilidad',
@@ -574,72 +547,96 @@ const METAS_SEMANA: Record<number, Record<string, Record<NivelTarea, string>>> =
   },
 };
 
+const NIVEL_ORDER: NivelTarea[] = ['critico', 'bajo', 'medio', 'optimo'];
+
+const SEMANA_SUBTITULOS = [
+  'Arranque y correcciones urgentes',
+  'Fundamentos y estructura',
+  'Optimización de procesos',
+  'Automatización y escalabilidad',
+];
+const SEMANA_OBJETIVOS_FALLBACK = [
+  'Identificar y resolver las brechas más urgentes del negocio',
+  'Construir los sistemas base para operar con orden',
+  'Optimizar lo que ya funciona y eliminar ineficiencias',
+  'Automatizar procesos y preparar la siguiente etapa de crecimiento',
+];
+
 export function generarPlanSemanal(resultado: ResultadosDiagnostico): PlanSemanal[] {
   const { scoresPorArea } = resultado;
   const areasOrdenadas = Object.entries(scoresPorArea).sort(([, a], [, b]) => a - b);
+
+  // Build a prioritized flat queue of ALL tasks, ordered by:
+  // 1. Urgency bucket (critico → bajo → medio → optimo)
+  // 2. Within each bucket: weakest area first
+  const taskQueue: TareaSemanal[] = [];
   const usadas = new Set<string>();
 
-  const SEMANAS_CONFIG = [
-    { num: 1 as const, titulo: 'Semana 1', subtitulo: 'Arranque y correcciones urgentes', plazo: 'Días 1–7' },
-    { num: 2 as const, titulo: 'Semana 2', subtitulo: 'Fundamentos y estructura', plazo: 'Días 8–14' },
-    { num: 3 as const, titulo: 'Semana 3', subtitulo: 'Optimización de procesos', plazo: 'Días 15–21' },
-    { num: 4 as const, titulo: 'Semana 4+', subtitulo: 'Automatización y escalabilidad', plazo: 'Semana 4 en adelante' },
-  ];
-
-  return SEMANAS_CONFIG.map(config => {
-    const tareas: TareaSemanal[] = [];
-    let diaIdx = 0;
-
+  for (const bucket of NIVEL_ORDER) {
     for (const [areaId, score] of areasOrdenadas) {
-      const nivel = nivelScore(score);
-      const buckets = getBucketsForWeek(nivel, config.num);
+      const areaNivel = nivelScore(score);
+      const areaNivelIdx = NIVEL_ORDER.indexOf(areaNivel);
+      const bucketIdx = NIVEL_ORDER.indexOf(bucket);
+      // Only include buckets at or above the area's current level
+      if (bucketIdx < areaNivelIdx) continue;
 
-      for (const bucket of buckets) {
-        const disponibles = (TAREAS_POR_AREA[areaId]?.[bucket] ?? [])
-          .filter(t => !usadas.has(t.id));
-
-        for (const tarea of disponibles.slice(0, 1)) {
-          const dia = DIAS[diaIdx % DIAS.length];
-          diaIdx++;
-          tareas.push({ ...tarea, dia });
-          usadas.add(tarea.id);
-        }
+      const tasks = (TAREAS_POR_AREA[areaId]?.[bucket] ?? []).filter(t => !usadas.has(t.id));
+      for (const task of tasks) {
+        taskQueue.push(task);
+        usadas.add(task.id);
       }
     }
+  }
 
-    const tareasFinales = tareas.slice(0, 12);
+  // Chunk into weeks of up to TASKS_PER_WEEK tasks, assigned to days round-robin
+  const TASKS_PER_WEEK = 10;
+  const numSemanas = Math.max(4, Math.ceil(taskQueue.length / TASKS_PER_WEEK));
+  const semanas: PlanSemanal[] = [];
 
-    // Focus area = weakest area for weeks 1-2, then shifting upward
-    const focusIdx = config.num <= 2 ? 0 : Math.min(config.num - 2, areasOrdenadas.length - 1);
+  for (let semanaNum = 1; semanaNum <= numSemanas; semanaNum++) {
+    const start = (semanaNum - 1) * TASKS_PER_WEEK;
+    const chunk = taskQueue.slice(start, start + TASKS_PER_WEEK);
+
+    const tareas: TareaSemanal[] = chunk.map((tarea, i) => ({
+      ...tarea,
+      dia: DIAS[i % DIAS.length],
+    }));
+
+    // Focus area = weakest area for weeks 1–2, progressively shifts
+    const focusIdx = semanaNum <= 2 ? 0 : Math.min(semanaNum - 2, areasOrdenadas.length - 1);
     const focusAreaId = areasOrdenadas[focusIdx]?.[0] ?? 'operaciones';
 
-    // Generate metas for this week
+    // Clamp to known-data weeks (1–4) for static labels; repeat last for extra weeks
+    const labelIdx = Math.min(semanaNum, 4) as 1 | 2 | 3 | 4;
+    const subtituloIdx = Math.min(semanaNum - 1, SEMANA_SUBTITULOS.length - 1);
+
     const metasSemana = areasOrdenadas.slice(0, 3).map(([areaId, score]) => {
       const nivel = nivelScore(score);
-      return METAS_SEMANA[config.num]?.[areaId]?.[nivel] ?? `Mejorar área de ${areaId}`;
+      return METAS_SEMANA[labelIdx]?.[areaId]?.[nivel] ?? `Mejorar área de ${NOMBRES_FOCUS[areaId] ?? areaId}`;
     });
 
-    // Generate objective
-    const areaFocusScore = scoresPorArea[focusAreaId] ?? 50;
-    const nivelFocus = nivelScore(areaFocusScore);
-    const objetivoMap = OBJETIVOS_SEMANA[config.num];
-    const objetivo = objetivoMap?.[focusAreaId]
-      ?? (config.num === 1 ? 'Identificar y resolver las brechas más urgentes del negocio'
-        : config.num === 2 ? 'Construir los sistemas base para operar con orden'
-        : config.num === 3 ? 'Optimizar lo que ya funciona y eliminar ineficiencias'
-        : 'Automatizar procesos y preparar la expansión a construcción de casas');
+    const objetivo =
+      OBJETIVOS_SEMANA[labelIdx]?.[focusAreaId] ??
+      SEMANA_OBJETIVOS_FALLBACK[subtituloIdx] ??
+      'Continuar avanzando en el plan de mejora';
 
-    void nivelFocus;
+    const diaInicio = (semanaNum - 1) * 7 + 1;
+    const diaFin = semanaNum * 7;
+    const plazo = semanaNum <= 4
+      ? `Días ${diaInicio}–${diaFin}`
+      : `Semana ${semanaNum}`;
 
-    return {
-      semanaNum: config.num,
-      semana: config.titulo,
-      subtitulo: config.subtitulo,
-      plazo: config.plazo,
+    semanas.push({
+      semanaNum,
+      semana: `Semana ${semanaNum}`,
+      subtitulo: SEMANA_SUBTITULOS[subtituloIdx] ?? `Fase ${semanaNum}`,
+      plazo,
       objetivo,
-      tareas: tareasFinales,
+      tareas,
       focusArea: NOMBRES_FOCUS[focusAreaId] ?? focusAreaId,
       metasSemana,
-    };
-  });
+    });
+  }
+
+  return semanas;
 }

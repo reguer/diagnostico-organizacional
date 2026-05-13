@@ -141,6 +141,16 @@ export function WeeklyPlan({ plan }: WeeklyPlanProps) {
                                   ⚡ {tarea.automatizacion}
                                 </span>
                               )}
+                              {tarea.kpiMejora && (
+                                <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">
+                                  📊 KPI: {tarea.kpiMejora}
+                                </span>
+                              )}
+                              {tarea.kriMitiga && (
+                                <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">
+                                  ⚠️ KRI: {tarea.kriMitiga}
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>

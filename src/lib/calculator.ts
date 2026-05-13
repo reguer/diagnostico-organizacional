@@ -1,3 +1,4 @@
+import type { Area } from '../data/diagnostico';
 import { AREAS } from '../data/diagnostico';
 
 export interface ScoresPorArea {
@@ -16,6 +17,8 @@ export interface ImpactoReal {
   severidad: 'critico' | 'alto' | 'medio';
 }
 
+export type TipoAccion = 'remediacion' | 'optimizacion' | 'crecimiento';
+
 export interface AccionItem {
   areaId: string;
   areaNombre: string;
@@ -24,6 +27,7 @@ export interface AccionItem {
   accion: string;
   detalle: string;
   plazo: string;
+  tipo: TipoAccion;
 }
 
 export interface ResultadosDiagnostico {
@@ -94,7 +98,7 @@ const IMPACTOS_POR_AREA: Record<string, (score: number) => { titulo: string; des
   }),
 };
 
-const ACCIONES_POR_AREA: Record<string, { accion: string; detalle: string; plazo: string }> = {
+const ACCIONES_REMEDIACION: Record<string, { accion: string; detalle: string; plazo: string }> = {
   finanzas: {
     accion: 'Crea una plantilla de costeo de proyecto esta semana',
     detalle: 'Abre una hoja de cálculo y lista: materiales, horas de cuadrilla, uso de maquinaria, transporte y un 10% de imprevistos. Úsala en tu próxima cotización.',
@@ -122,6 +126,68 @@ const ACCIONES_POR_AREA: Record<string, { accion: string; detalle: string; plazo
   },
 };
 
+const ACCIONES_OPTIMIZACION: Record<string, { accion: string; detalle: string; plazo: string }> = {
+  finanzas: {
+    accion: 'Implementa un reporte mensual de margen por tipo de servicio',
+    detalle: 'Compara el margen real de paisajismo vs. riego vs. construcción. Identifica cuál es más rentable y enfoca cotizaciones ahí.',
+    plazo: 'Próximos 15 días',
+  },
+  operaciones: {
+    accion: 'Crea un checklist de calidad para los 3 servicios principales',
+    detalle: 'Define 5-8 puntos de revisión antes de considerar un proyecto terminado. Entrénalo con el encargado de obra.',
+    plazo: 'Próximas 2 semanas',
+  },
+  personas: {
+    accion: 'Establece reuniones breves de seguimiento semanal con tu equipo',
+    detalle: 'Cada lunes por la mañana: 15 minutos con los encargados para revisar proyectos activos, bloqueos y necesidades de la semana.',
+    plazo: 'Próxima semana',
+  },
+  mercadeo: {
+    accion: 'Implementa un seguimiento activo de cotizaciones abiertas',
+    detalle: 'Lleva una lista de todas las cotizaciones enviadas con fecha y estado. Haz seguimiento a los 3, 7 y 14 días si no hay respuesta.',
+    plazo: 'Esta semana',
+  },
+  estrategia: {
+    accion: 'Programa una revisión mensual de tus indicadores clave',
+    detalle: 'El último viernes de cada mes: revisa ingresos reales vs. meta, proyectos cerrados vs. cotizados, y margen promedio. Ajusta el mes siguiente.',
+    plazo: 'Fin de mes',
+  },
+};
+
+const ACCIONES_CRECIMIENTO: Record<string, { accion: string; detalle: string; plazo: string }> = {
+  finanzas: {
+    accion: 'Evalúa financiamiento para el primer proyecto de vivienda — ya tienes la base financiera',
+    detalle: 'Con tu control financiero sólido, investiga líneas de crédito empresarial o preventas para escalar a construcción residencial. Prepara un perfil crediticio este mes.',
+    plazo: 'Este mes',
+  },
+  operaciones: {
+    accion: 'Implementa un software de gestión de proyectos para escalar operaciones',
+    detalle: 'Tus procesos ya están listos para escalar. Evalúa Buildertrend, Monday.com o Trello para coordinar múltiples proyectos y cuadrillas simultáneamente.',
+    plazo: 'Este mes',
+  },
+  personas: {
+    accion: 'Diseña un programa de incentivos por desempeño para retener a los mejores',
+    detalle: 'Con tu equipo estable, crea un sistema de bonos por calidad y cumplimiento. Esto convierte a empleados buenos en socios del crecimiento.',
+    plazo: 'Próximas 4 semanas',
+  },
+  mercadeo: {
+    accion: 'Lanza una campaña diferenciada dirigida a construcción comercial',
+    detalle: 'Tu marca ya tiene credibilidad. Crea un portafolio digital de tus mejores proyectos y lanza Google Ads o Meta Ads segmentados por zona y tipo de cliente.',
+    plazo: 'Próximas 2 semanas',
+  },
+  estrategia: {
+    accion: 'Formaliza un plan de crecimiento a 3 años con nuevos servicios o mercados',
+    detalle: 'Con bases sólidas, define qué nuevo mercado o servicio atacarás: ¿proyectos ejecutivos?, ¿expansión a otra ciudad?, ¿alianza con arquitectos? Ponlo por escrito.',
+    plazo: 'Próximo mes',
+  },
+};
+
+function getTipoAccion(score: number): TipoAccion {
+  if (score < 50) return 'remediacion';
+  if (score < 80) return 'optimizacion';
+  return 'crecimiento';
+}
+
 function getNivel(score: number): { nivel: ResultadosDiagnostico['nivel']; texto: string; color: string } {
   if (score < 30) return { nivel: 'critico', texto: 'Crítico — Acción inmediata necesaria', color: '#ef4444' };
   if (score < 50) return { nivel: 'bajo', texto: 'Bajo — Fundamentos por construir', color: '#f97316' };
@@ -130,13 +196,18 @@ function getNivel(score: number): { nivel: ResultadosDiagnostico['nivel']; texto
   return { nivel: 'excelente', texto: 'Excelente — Empresa modelo', color: '#6366f1' };
 }
 
-export function calcularResultados(respuestas: Record<string, number>): ResultadosDiagnostico {
+export function calcularResultados(
+  respuestas: Record<string, number>,
+  areasActivas?: Area[],
+): ResultadosDiagnostico {
+  const areas = areasActivas ?? AREAS;
   const scoresPorArea: ScoresPorArea = {};
   let scoreGeneral = 0;
   let pesoTotal = 0;
 
-  for (const area of AREAS) {
+  for (const area of areas) {
     const preguntasDelArea = area.preguntas;
+    if (preguntasDelArea.length === 0) continue;
     const maxPosible = preguntasDelArea.length * 4;
     const sumaRespuestas = preguntasDelArea.reduce((acc, p) => {
       return acc + (respuestas[p.id] ?? 1);
@@ -146,11 +217,10 @@ export function calcularResultados(respuestas: Record<string, number>): Resultad
     pesoTotal += area.peso;
   }
 
-  scoreGeneral = Math.round(scoreGeneral / pesoTotal);
+  scoreGeneral = pesoTotal > 0 ? Math.round(scoreGeneral / pesoTotal) : 0;
 
-  // Generar impactos: todas las áreas ordenadas de menor a mayor score
-  const areasOrdenadas = AREAS
-    .map((area) => ({ area, score: scoresPorArea[area.id] }))
+  const areasOrdenadas = areas
+    .map((area) => ({ area, score: scoresPorArea[area.id] ?? 0 }))
     .sort((a, b) => a.score - b.score);
 
   const impactosReales: ImpactoReal[] = areasOrdenadas
@@ -158,7 +228,11 @@ export function calcularResultados(respuestas: Record<string, number>): Resultad
     .slice(0, 3)
     .map(({ area, score }) => {
       const impactoFn = IMPACTOS_POR_AREA[area.id];
-      const impacto = impactoFn(score);
+      const impacto = impactoFn ? impactoFn(score) : {
+        titulo: `Área ${area.nombre} por mejorar`,
+        descripcion: 'Esta área presenta oportunidades de mejora que impactan la eficiencia del negocio.',
+        estimacion: '📌 Revisa los detalles en el plan de acción',
+      };
       const severidad: ImpactoReal['severidad'] = score < 35 ? 'critico' : score < 55 ? 'alto' : 'medio';
       return {
         areaId: area.id,
@@ -173,17 +247,28 @@ export function calcularResultados(respuestas: Record<string, number>): Resultad
       };
     });
 
-  // Plan de acción: 3 áreas con menor score
-  const planAccion: AccionItem[] = areasOrdenadas.slice(0, 3).map(({ area }, idx) => {
-    const accionData = ACCIONES_POR_AREA[area.id];
+  // Plan de acción: all areas sorted by score, with appropriate action type
+  const planAccion: AccionItem[] = areasOrdenadas.map(({ area, score }, idx) => {
+    const tipo = getTipoAccion(score);
+    const accionData =
+      tipo === 'crecimiento'
+        ? ACCIONES_CRECIMIENTO[area.id]
+        : tipo === 'optimizacion'
+          ? ACCIONES_OPTIMIZACION[area.id]
+          : ACCIONES_REMEDIACION[area.id];
+
+    const fallback = { accion: `Mejora en ${area.nombre}`, detalle: 'Revisa los indicadores de esta área con tu equipo.', plazo: 'Próximas semanas' };
+    const data = accionData ?? fallback;
+
     return {
       areaId: area.id,
       areaNombre: area.nombre,
       icono: area.icono,
       prioridad: idx + 1,
-      accion: accionData.accion,
-      detalle: accionData.detalle,
-      plazo: accionData.plazo,
+      accion: data.accion,
+      detalle: data.detalle,
+      plazo: data.plazo,
+      tipo,
     };
   });
 
