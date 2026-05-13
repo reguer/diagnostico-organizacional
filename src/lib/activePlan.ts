@@ -58,6 +58,23 @@ function inferTipo(score: number): TipoTarea {
   return 'crecimiento';
 }
 
+function implementationDuration(accion: AccionItem) {
+  const text = `${accion.accion} ${accion.detalle} ${accion.plazo}`.toLowerCase();
+  if (text.includes('4-8 semanas') || text.includes('legal') || text.includes('permiso') || text.includes('financiamiento')) return '4-8 semanas';
+  if (text.includes('2-3 semanas') || text.includes('proceso') || text.includes('dashboard') || text.includes('indicador')) return '2-3 semanas';
+  if (accion.recurrencia) return '1-2 horas una sola vez';
+  if (accion.fase === 'preparacion') return '1-2 semanas';
+  return '1 semana';
+}
+
+function executionDuration(accion: AccionItem) {
+  if (accion.recurrencia === 'semanal') return '20-45 minutos por semana';
+  if (accion.recurrencia === 'mensual') return '45-90 minutos por mes';
+  if (accion.plazo.includes('4-8')) return '2-4 semanas de puesta en practica';
+  if (accion.plazo.includes('2-3')) return '1-2 semanas de puesta en practica';
+  return '1 semana de puesta en practica';
+}
+
 function actionTaskId(diagnosticoId: string, accion: AccionItem, suffix: string | number) {
   return `${diagnosticoId}:accion:${accion.areaId}:${accion.preguntaId ?? 'area'}:${suffix}`;
 }
@@ -99,6 +116,18 @@ function generatedTask(
   };
 }
 
+function monthlyReviewTask(diagnostico: DiagnosticoGuardado, accion: AccionItem, reviewIdx: number, areaIndex: number): PlanTask {
+  return generatedTask(
+    diagnostico,
+    accion,
+    reviewIdx,
+    areaIndex,
+    `revision-mensual-${reviewIdx}`,
+    `Revision mensual de avance: ${accion.accion}`,
+    `Evalua evidencia, KPI asociado, bloqueo principal y siguiente mejora. Compara el estado actual contra el objetivo: ${accion.respuestaObjetivo ?? 'estado objetivo'}.`,
+  );
+}
+
 export function getGeneratedTasks(diagnostico: DiagnosticoGuardado) {
   const areasActivas = filtrarPreguntas(AREAS, diagnostico.config);
   const resultadoActualizado = calcularResultados(diagnostico.respuestas, areasActivas);
@@ -109,8 +138,41 @@ export function getGeneratedTasks(diagnostico: DiagnosticoGuardado) {
     const areaIndex = areaCounts[accion.areaId] ?? 0;
     areaCounts[accion.areaId] = areaIndex + 1;
 
-    const base = generatedTask(diagnosticoActualizado, accion, idx, areaIndex);
-    if (accion.recurrencia !== 'semanal') return [base];
+    const implementacion = generatedTask(
+      diagnosticoActualizado,
+      accion,
+      idx,
+      areaIndex,
+      'implementacion',
+      `Implementar: ${accion.accion}`,
+      `${accion.detalle} Entregable de implementacion: responsable asignado, formato/proceso/documento listo y primer caso de prueba definido.`,
+    );
+
+    if (accion.recurrencia !== 'semanal') {
+      const executionDate = addDays(new Date(implementacion.fechaAsignada), implementationDuration(accion).includes('4-8') ? 28 : implementationDuration(accion).includes('2-3') ? 14 : 7);
+      const ejecucion = generatedTask(
+        diagnosticoActualizado,
+        accion,
+        idx,
+        areaIndex,
+        'ejecucion',
+        `Ejecutar y validar: ${accion.accion}`,
+        `Pon en practica lo implementado en al menos un proyecto, cliente, proceso o cierre real. Registra evidencia y decide si queda como rutina.`,
+      );
+      ejecucion.fechaAsignada = getEstadoTarea(ejecucion.id).fechaAsignada ?? toIsoDate(executionDate);
+      ejecucion.duracion = executionDuration(accion);
+      ejecucion.fase = 'implementacion';
+
+      const reviewBase = addDays(executionDate, 21);
+      const revision = monthlyReviewTask(diagnosticoActualizado, accion, 1, areaIndex);
+      revision.fechaAsignada = getEstadoTarea(revision.id).fechaAsignada ?? toIsoDate(reviewBase);
+      revision.duracion = '45 minutos al mes';
+      revision.fase = 'evaluacion';
+      revision.recurrencia = 'mensual';
+
+      implementacion.duracion = implementationDuration(accion);
+      return [implementacion, ejecucion, revision];
+    }
 
     const prep = generatedTask(
       diagnosticoActualizado,
@@ -121,6 +183,7 @@ export function getGeneratedTasks(diagnostico: DiagnosticoGuardado) {
       `Preparar formato recurrente: ${accion.accion}`,
       `${accion.detalle} Entregable: agenda, responsable, evidencia esperada y minuta base para que la rutina no dependa de improvisacion.`,
     );
+    prep.duracion = implementationDuration(accion);
 
     const fechaBase = new Date(prep.fechaAsignada);
     const ocurrencias = Array.from({ length: 12 }, (_, occurrenceIdx) => {
@@ -128,18 +191,28 @@ export function getGeneratedTasks(diagnostico: DiagnosticoGuardado) {
       const taskId = actionTaskId(diagnostico.id, accion, `semana-${occurrenceIdx + 1}`);
       const estado = getEstadoTarea(taskId);
       return {
-        ...base,
+        ...prep,
         id: taskId,
         titulo: `${accion.accion} · semana ${occurrenceIdx + 1}`,
         detalle: `Ejecucion recurrente semanal. Revisa acuerdos anteriores, bloqueos, responsables y evidencia de avance. Base: ${accion.detalle}`,
-        duracion: '20-45 minutos',
+        duracion: executionDuration(accion),
         fechaAsignada: estado.fechaAsignada ?? toIsoDate(occurrenceDate),
         fase: 'implementacion' as const,
         recurrencia: 'semanal' as const,
       };
     });
 
-    return [prep, ...ocurrencias];
+    const revisiones = Array.from({ length: 3 }, (_, reviewIdx) => {
+      const reviewDate = addDays(fechaBase, 28 * (reviewIdx + 1));
+      const revision = monthlyReviewTask(diagnosticoActualizado, accion, reviewIdx + 1, areaIndex);
+      revision.fechaAsignada = getEstadoTarea(revision.id).fechaAsignada ?? toIsoDate(reviewDate);
+      revision.duracion = '45 minutos al mes';
+      revision.fase = 'evaluacion';
+      revision.recurrencia = 'mensual';
+      return revision;
+    });
+
+    return [prep, ...ocurrencias, ...revisiones];
   });
 }
 

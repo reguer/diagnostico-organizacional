@@ -25,6 +25,13 @@ export interface FinanzasRegistro {
   gastos: Record<string, number>;
 }
 
+export const FINANZAS_CATEGORIES = [
+  { id: 'gastos_fijos', label: 'Gastos fijos' },
+  { id: 'gastos_operativos', label: 'Gastos operativos' },
+  { id: 'gastos_obra', label: 'Gastos por obra' },
+  { id: 'impuestos', label: 'Impuestos' },
+];
+
 export interface KpiDefinition {
   id: string;
   areaId: string;

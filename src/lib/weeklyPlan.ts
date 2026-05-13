@@ -562,6 +562,21 @@ const SEMANA_OBJETIVOS_FALLBACK = [
   'Automatizar procesos y preparar la siguiente etapa de crecimiento',
 ];
 
+function tiempoImplementacion(plazo: string) {
+  if (plazo.includes('4-8')) return '4-8 semanas';
+  if (plazo.includes('2-3')) return '2-3 semanas';
+  if (plazo.toLowerCase().includes('recurrente')) return '1-2 horas una sola vez';
+  return '1 semana';
+}
+
+function tiempoEjecucion(plazo: string, recurrencia?: string) {
+  if (recurrencia === 'semanal') return '20-45 minutos por semana';
+  if (recurrencia === 'mensual') return '45-90 minutos por mes';
+  if (plazo.includes('4-8')) return '2-4 semanas de puesta en practica';
+  if (plazo.includes('2-3')) return '1-2 semanas de puesta en practica';
+  return '1 semana de puesta en practica';
+}
+
 export function generarPlanSemanal(resultado: ResultadosDiagnostico): PlanSemanal[] {
   if (resultado.planAccion.some((accion) => accion.preguntaId)) {
     const areaCounts: Record<string, number> = {};
@@ -585,10 +600,39 @@ export function generarPlanSemanal(resultado: ResultadosDiagnostico): PlanSemana
         kriMitiga: accion.respuestaActual,
       };
 
-      if (accion.recurrencia !== 'semanal') return [baseTask];
+      const implementacion: TareaSemanal = {
+        ...baseTask,
+        id: `${baseTask.id}-implementacion`,
+        titulo: `Implementar: ${accion.accion}`,
+        detalle: `${accion.detalle} Entregable: responsable, formato/proceso/documento listo y primer caso de prueba definido.`,
+        duracion: tiempoImplementacion(accion.plazo),
+      };
+
+      if (accion.recurrencia !== 'semanal') {
+        return [
+          implementacion,
+          {
+            ...baseTask,
+            id: `${baseTask.id}-ejecucion`,
+            titulo: `Ejecutar y validar: ${accion.accion}`,
+            detalle: 'Pon en practica lo implementado en al menos un proyecto, cliente, proceso o cierre real. Registra evidencia y decide si queda como rutina.',
+            duracion: tiempoEjecucion(accion.plazo, accion.recurrencia),
+          },
+          {
+            ...baseTask,
+            id: `${baseTask.id}-revision-mensual`,
+            titulo: `Revision mensual de avance: ${accion.accion}`,
+            detalle: `Evalua evidencia, KPI asociado, bloqueo principal y siguiente mejora. Compara contra el objetivo: ${accion.respuestaObjetivo ?? 'estado objetivo'}.`,
+            duracion: '45 minutos al mes',
+            tipo: 'optimizacion' as const,
+            automatizacion: 'Revision mensual',
+          },
+        ];
+      }
+
       return [
         {
-          ...baseTask,
+          ...implementacion,
           id: `${baseTask.id}-prep`,
           titulo: `Preparar formato recurrente: ${accion.accion}`,
           detalle: `${accion.detalle} Entregable unico: agenda, responsable, evidencia esperada y minuta base.`,
@@ -599,7 +643,16 @@ export function generarPlanSemanal(resultado: ResultadosDiagnostico): PlanSemana
           id: `${baseTask.id}-semana-${occurrenceIdx + 1}`,
           titulo: `${accion.accion} · semana ${occurrenceIdx + 1}`,
           detalle: `Ejecucion recurrente semanal con agenda y evidencia. ${accion.detalle}`,
-          duracion: '20-45 minutos',
+          duracion: tiempoEjecucion(accion.plazo, accion.recurrencia),
+        })),
+        ...Array.from({ length: 3 }, (_, reviewIdx) => ({
+          ...baseTask,
+          id: `${baseTask.id}-revision-mensual-${reviewIdx + 1}`,
+          titulo: `Revision mensual ${reviewIdx + 1}: ${accion.accion}`,
+          detalle: `Revisa avances acumulados, acuerdos cumplidos, KPI relacionado y ajustes para el siguiente mes.`,
+          duracion: '45 minutos al mes',
+          tipo: 'optimizacion' as const,
+          automatizacion: 'Revision mensual',
         })),
       ];
     });

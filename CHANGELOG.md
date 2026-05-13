@@ -69,3 +69,10 @@
 - Agregado formato descargable Notion-ready de epics and stories desde el tablero de tareas.
 - Agregadas vistas de Diagnostico, Plan semanal e Indicadores dentro de la plataforma de seguimiento.
 - Ampliado el catalogo de KPIs/KRIs para cubrir finanzas, operaciones, mercadeo, personas y estrategia con mas granularidad.
+
+## 2026-05-13 - Calendario realista y finanzas simplificadas
+
+- Cada accion del diagnostico ahora se divide en implementacion, ejecucion y revision mensual.
+- Las rutinas recurrentes generan preparacion unica, ejecuciones semanales y revisiones mensuales en el calendario.
+- Los tiempos de las tareas se ajustan segun complejidad: 1 semana, 2-3 semanas, 4-8 semanas o recurrencia semanal/mensual.
+- El modulo financiero se limito a ingresos, gastos fijos, gastos operativos, gastos por obra e impuestos.
