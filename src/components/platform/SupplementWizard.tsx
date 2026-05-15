@@ -110,9 +110,8 @@ export function SupplementWizard({ diagnostico, onCompleted, onClose }: Suppleme
                 key={opcion.valor}
                 texto={opcion.texto}
                 valor={opcion.valor}
-                impactoKPI={opcion.impactoKPI}
                 seleccionado={respuestaActual === opcion.valor}
-                onSelect={() => handleRespuesta(opcion.valor)}
+                onClick={() => handleRespuesta(opcion.valor)}
               />
             ))}
           </div>
