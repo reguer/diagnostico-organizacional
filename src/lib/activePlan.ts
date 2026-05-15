@@ -1,6 +1,7 @@
 import { AREAS } from '../data/diagnostico';
 import type { AccionItem } from './calculator';
 import { calcularResultados } from './calculator';
+import { SUBAREA_LABELS } from './subareaLabels';
 import { filtrarPreguntas } from './filterQuestions';
 import {
   getEstadoTarea,
@@ -50,6 +51,10 @@ function addDays(base: Date, days: number) {
   const date = new Date(base);
   date.setDate(date.getDate() + days);
   return date;
+}
+
+function temaDeAccion(accion: AccionItem): string {
+  return SUBAREA_LABELS[accion.subarea ?? ''] ?? accion.areaNombre.toLowerCase();
 }
 
 function inferTipo(score: number): TipoTarea {
@@ -117,14 +122,15 @@ function generatedTask(
 }
 
 function monthlyReviewTask(diagnostico: DiagnosticoGuardado, accion: AccionItem, reviewIdx: number, areaIndex: number): PlanTask {
+  const tema = temaDeAccion(accion);
   return generatedTask(
     diagnostico,
     accion,
     reviewIdx,
     areaIndex,
     `revision-mensual-${reviewIdx}`,
-    `Revision mensual de avance: ${accion.accion}`,
-    `Evalua evidencia, KPI asociado, bloqueo principal y siguiente mejora. Compara el estado actual contra el objetivo: ${accion.respuestaObjetivo ?? 'estado objetivo'}.`,
+    `Revisión mensual: ${accion.areaNombre} · ${tema}`,
+    `Evalúa evidencia, KPI asociado y bloqueo principal. Compara el estado actual contra el objetivo: "${accion.respuestaObjetivo ?? 'estado objetivo'}". Decide la siguiente mejora concreta.`,
   );
 }
 
@@ -138,14 +144,15 @@ export function getGeneratedTasks(diagnostico: DiagnosticoGuardado) {
     const areaIndex = areaCounts[accion.areaId] ?? 0;
     areaCounts[accion.areaId] = areaIndex + 1;
 
+    const tema = temaDeAccion(accion);
     const implementacion = generatedTask(
       diagnosticoActualizado,
       accion,
       idx,
       areaIndex,
       'implementacion',
-      `Implementar: ${accion.accion}`,
-      `${accion.detalle} Entregable de implementacion: responsable asignado, formato/proceso/documento listo y primer caso de prueba definido.`,
+      accion.accion,
+      `${accion.detalle} Entregable: responsable asignado, formato o proceso documentado y primer caso de prueba definido.`,
     );
 
     if (accion.recurrencia !== 'semanal') {
@@ -156,8 +163,8 @@ export function getGeneratedTasks(diagnostico: DiagnosticoGuardado) {
         idx,
         areaIndex,
         'ejecucion',
-        `Ejecutar y validar: ${accion.accion}`,
-        `Pon en practica lo implementado en al menos un proyecto, cliente, proceso o cierre real. Registra evidencia y decide si queda como rutina.`,
+        `Aplicar en campo: ${tema}`,
+        `Pon en práctica lo implementado en al menos un proyecto, cliente o proceso real. Registra evidencia y decide si queda como rutina permanente.`,
       );
       ejecucion.fechaAsignada = getEstadoTarea(ejecucion.id).fechaAsignada ?? toIsoDate(executionDate);
       ejecucion.duracion = executionDuration(accion);
@@ -180,8 +187,8 @@ export function getGeneratedTasks(diagnostico: DiagnosticoGuardado) {
       idx,
       areaIndex,
       'prep',
-      `Preparar formato recurrente: ${accion.accion}`,
-      `${accion.detalle} Entregable: agenda, responsable, evidencia esperada y minuta base para que la rutina no dependa de improvisacion.`,
+      `Preparar rutina: ${tema}`,
+      `${accion.detalle} Entregable: agenda, responsable, evidencia esperada y minuta base para que la rutina no dependa de improvisación.`,
     );
     prep.duracion = implementationDuration(accion);
 
@@ -193,8 +200,8 @@ export function getGeneratedTasks(diagnostico: DiagnosticoGuardado) {
       return {
         ...prep,
         id: taskId,
-        titulo: `${accion.accion} · semana ${occurrenceIdx + 1}`,
-        detalle: `Ejecucion recurrente semanal. Revisa acuerdos anteriores, bloqueos, responsables y evidencia de avance. Base: ${accion.detalle}`,
+        titulo: `${tema} · semana ${occurrenceIdx + 1} de 12`,
+        detalle: `Ejecución recurrente semanal. Revisa acuerdos anteriores, bloqueos, responsables y evidencia de avance. Base: ${accion.detalle}`,
         duracion: executionDuration(accion),
         fechaAsignada: estado.fechaAsignada ?? toIsoDate(occurrenceDate),
         fase: 'implementacion' as const,

@@ -20,6 +20,7 @@ import { FinanzasBasicas } from './FinanzasBasicas';
 import { GoalsPanel } from './GoalsPanel';
 import { KpiTracker } from './KpiTracker';
 import { ReportsPanel } from './ReportsPanel';
+import { SupplementWizard } from './SupplementWizard';
 import { TaskBoard } from './TaskBoard';
 import { TeamPanel } from './TeamPanel';
 
@@ -45,6 +46,7 @@ export function PlatformPage({ onGoDiagnostic }: PlatformPageProps) {
   const [tab, setTab] = useState<PlatformTab>('diagnostico');
   const [, refresh] = useReducer((value: number) => value + 1, 0);
   const [modalOpen, setModalOpen] = useState(false);
+  const [showSupplement, setShowSupplement] = useState(false);
   const [now] = useState(() => Date.now());
   const diagnosticoGuardado = getHistorialDiagnosticos()[0];
   const diagnostico = diagnosticoGuardado
@@ -68,6 +70,12 @@ export function PlatformPage({ onGoDiagnostic }: PlatformPageProps) {
   const metas = getMetas();
   const planSemanal = diagnostico ? generarPlanSemanal(diagnostico.resultado) : [];
   const kpiKri = diagnostico ? generarKpiKri(diagnostico.resultado.scoresPorArea) : [];
+
+  const preguntasSinRespuesta = diagnosticoGuardado
+    ? filtrarPreguntas(AREAS, diagnosticoGuardado.config).flatMap((area) =>
+        area.preguntas.filter((p) => diagnosticoGuardado.respuestas[p.id] === undefined),
+      ).length
+    : 0;
 
   const completed = tasks.filter((task) => {
     const raw = window.localStorage.getItem(`diag:tareas:${task.id}`);
@@ -107,6 +115,21 @@ export function PlatformPage({ onGoDiagnostic }: PlatformPageProps) {
             {daysSinceDiagnostic >= 28 && (
               <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4 text-sm font-semibold text-amber-800">
                 Han pasado {daysSinceDiagnostic} dias. Ya puedes medir tu progreso con un nuevo diagnostico.
+              </div>
+            )}
+
+            {preguntasSinRespuesta > 0 && (
+              <div className="flex items-center justify-between rounded-2xl border border-indigo-100 bg-indigo-50 p-4">
+                <p className="text-sm font-semibold text-indigo-800">
+                  Hay {preguntasSinRespuesta} pregunta{preguntasSinRespuesta !== 1 ? 's' : ''} nueva{preguntasSinRespuesta !== 1 ? 's' : ''} en tu diagnostico. Respondelas para actualizar tu plan.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setShowSupplement(true)}
+                  className="ml-4 shrink-0 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
+                >
+                  Responder ahora
+                </button>
               </div>
             )}
 
@@ -166,6 +189,13 @@ export function PlatformPage({ onGoDiagnostic }: PlatformPageProps) {
         )}
       </main>
 
+      {showSupplement && diagnosticoGuardado && (
+        <SupplementWizard
+          diagnostico={diagnosticoGuardado}
+          onCompleted={() => { setShowSupplement(false); refresh(); }}
+          onClose={() => setShowSupplement(false)}
+        />
+      )}
       <AddTaskModal open={modalOpen} onClose={() => setModalOpen(false)} onAdded={refresh} />
     </div>
   );

@@ -1,5 +1,6 @@
 import type { Area } from '../data/diagnostico';
 import { AREAS } from '../data/diagnostico';
+import { SUBAREA_LABELS } from './subareaLabels';
 
 export interface ScoresPorArea {
   [areaId: string]: number;
@@ -234,16 +235,18 @@ function buildAccionDesdePregunta(area: Area, pregunta: Area['preguntas'][number
   const fase = getFasePorRespuesta(valor);
   const recurrencia = getRecurrencia(pregunta);
   const verb =
-    valor <= 1 ? 'Crear base operativa para' :
-    valor === 2 ? 'Formalizar y poner en uso' :
+    valor <= 1 ? 'Crear base operativa' :
+    valor === 2 ? 'Formalizar y activar' :
     'Estandarizar y medir';
-  const accion = `${verb}: ${pregunta.texto.replace(/[¿?]/g, '')}`;
+  const tema = SUBAREA_LABELS[pregunta.subarea] ?? pregunta.subarea.replace(/_/g, ' ');
+  const accion = `${verb}: ${tema}`;
   const detalle = [
-    `Respuesta actual: ${opcionActual?.texto ?? `nivel ${valor}`}.`,
-    `Resultado esperado: ${opcionObjetivo?.texto ?? 'nivel adecuado documentado y medible'}.`,
+    `Enfoque: ${pregunta.texto.replace(/^[¿]/, '').replace(/[?]$/, '').trim()}.`,
+    `Situación actual: ${opcionActual?.texto ?? `nivel ${valor}`}.`,
+    `Objetivo: ${opcionObjetivo?.texto ?? 'nivel adecuado documentado y medible'}.`,
     pregunta.descripcion ? `Contexto: ${pregunta.descripcion}.` : '',
     recurrencia === 'semanal'
-      ? 'Primero prepara el formato o agenda base; despues ejecuta la rutina cada semana para no improvisar.'
+      ? 'Prepara el formato o agenda base antes de iniciar; ejecuta la rutina cada semana para no improvisar.'
       : 'Documenta el criterio, asigna responsable, ejecútalo en un caso real y revisa evidencia de cumplimiento.',
   ].filter(Boolean).join(' ');
 
